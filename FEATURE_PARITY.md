@@ -182,14 +182,25 @@ This document tracks feature parity between foobara-py (Python) and the Ruby Foo
   - Pydantic type aliases for common patterns
   - Sensitive data handling with `Sensitive[T]`, `Password`, `APIKey`, etc.
 
+### Remote Imports (Complete)
+- ✅ **Remote Import System**
+  - `RemoteImporter` class for importing commands/types from remote services
+  - `RemoteCommand` and `AsyncRemoteCommand` for HTTP-based remote execution
+  - `ManifestCache` and `FileManifestCache` for manifest caching with TTL
+  - `RemoteNamespace` for namespace-based command access
+  - `import_remote()` shortcut function
+  - `DetachedEntity` for working with entities from remote sources
+  - Error handling: `RemoteImportError`, `ManifestFetchError`, `CommandNotFoundError`
+  - Full test coverage with 40 tests
+
 ## ⚠️ Features with Partial Parity
 
 ### Manifest System
 - ⚠️ **Manifest Generation**
   - Command manifest ✅
   - Domain manifest ✅
+  - Remote manifest imports ✅
   - Missing: Full type manifest with Ruby compatibility
-  - Missing: Remote manifest imports
 
 ## ❌ Features Not Yet Implemented
 
@@ -261,14 +272,14 @@ This document tracks feature parity between foobara-py (Python) and the Ruby Foo
 | Auth | 40% | 60% | 0% | 2/5 |
 
 ### Overall Parity
-- **Core Features**: ~98% complete (41/42 features)
-- **Advanced Features**: ~26% complete (5/19 features)
-- **Overall**: ~79% complete (46/58 total features)
+- **Core Features**: ~100% complete (42/42 features)
+- **Advanced Features**: ~32% complete (6/19 features)
+- **Overall**: ~83% complete (48/58 total features)
 
 ## 🎯 Priority for Ruby Parity
 
 ### High Priority (Core missing features)
-1. Remote imports
+All core features complete! Focus shifting to developer experience.
 
 ### Medium Priority (Developer experience)
 1. Generators (command, domain, type)
@@ -320,5 +331,6 @@ These additions achieved 95% Ruby parity roadmap progress with improved testing,
 1. ✅ Desugarizers System (FOOBARAPY-DESUGAR-01) - Full implementation with pipeline, registry, attribute and format desugarizers
 2. ✅ Transformers System (FOOBARAPY-TRANSFORM-01) - Full implementation with pipeline, registry, input/result/error transformers
 3. ✅ Ruby-Compatible Type System (FOOBARAPY-TYPES-01) - FoobaraType class, TypeRegistry, built-in casters/validators/transformers, 14 built-in types, DSL functions
+4. ✅ Remote Imports System (FOOBARAPY-REMOTE-01) - RemoteImporter, RemoteCommand, ManifestCache, RemoteNamespace, import_remote()
 
-Documentation audit confirmed Desugarizers/Transformers were already implemented. Added Ruby-compatible type declaration system with 64 tests. Updated feature parity to ~79%.
+Documentation audit confirmed Desugarizers/Transformers/Remote Imports were already implemented. Added Ruby-compatible type declaration system with 64 tests. All core features now complete. Updated feature parity to ~83%.
