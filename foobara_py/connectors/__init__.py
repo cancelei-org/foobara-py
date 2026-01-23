@@ -17,6 +17,37 @@ from foobara_py.connectors.http import (
     create_http_app,
 )
 from foobara_py.connectors.mcp import MCPConnector
+from foobara_py.connectors.graphql import (
+    GraphQLConfig,
+    GraphQLConnector,
+    GraphQLFieldConfig,
+    GraphQLOperationType,
+    GraphQLSchemaGenerator,
+    create_ariadne_schema,
+    create_strawberry_types,
+    generate_graphql_schema,
+)
+from foobara_py.connectors.websocket import (
+    Subscription,
+    WebSocketConfig,
+    WebSocketConnection,
+    WebSocketConnector,
+    WebSocketMessage,
+    WebSocketMessageType,
+    create_fastapi_websocket_handler,
+    create_starlette_websocket_handler,
+)
+from foobara_py.connectors.celery_connector import (
+    CeleryConfig,
+    CeleryConnector,
+    CeleryScheduler,
+    CeleryTaskFactory,
+    JobResult,
+    JobStatus,
+    ScheduleConfig,
+    create_celery_app,
+    execute_async,
+)
 
 __all__ = [
     "MCPConnector",
@@ -32,4 +63,29 @@ __all__ = [
     "CommandCLI",
     "OutputFormat",
     "create_cli_app",
+    "GraphQLConnector",
+    "GraphQLConfig",
+    "GraphQLFieldConfig",
+    "GraphQLOperationType",
+    "GraphQLSchemaGenerator",
+    "create_ariadne_schema",
+    "create_strawberry_types",
+    "generate_graphql_schema",
+    "WebSocketConnector",
+    "WebSocketConfig",
+    "WebSocketConnection",
+    "WebSocketMessage",
+    "WebSocketMessageType",
+    "Subscription",
+    "create_fastapi_websocket_handler",
+    "create_starlette_websocket_handler",
+    "CeleryConnector",
+    "CeleryConfig",
+    "CeleryScheduler",
+    "CeleryTaskFactory",
+    "JobResult",
+    "JobStatus",
+    "ScheduleConfig",
+    "create_celery_app",
+    "execute_async",
 ]

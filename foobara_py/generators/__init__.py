@@ -46,6 +46,24 @@ from foobara_py.generators.type_generator import (
     TypeGenerator,
     generate_type,
 )
+from foobara_py.generators.json_schema_generator import (
+    JsonSchemaGenerator,
+    OpenAPIConfig,
+    OpenAPIGenerator,
+    OpenAPIInfo,
+    OpenAPIServer,
+    generate_json_schema,
+    generate_openapi_json,
+    generate_openapi_spec,
+    generate_openapi_yaml,
+)
+from foobara_py.generators.typescript_sdk_generator import (
+    TypeScriptSDKConfig,
+    TypeScriptSDKGenerator,
+    generate_typescript_client,
+    generate_typescript_sdk,
+    generate_typescript_types,
+)
 
 __all__ = [
     "FilesGenerator",
@@ -70,4 +88,18 @@ __all__ = [
     "generate_cli_connector",
     "RemoteImportsGenerator",
     "generate_remote_imports",
+    "JsonSchemaGenerator",
+    "OpenAPIConfig",
+    "OpenAPIGenerator",
+    "OpenAPIInfo",
+    "OpenAPIServer",
+    "generate_json_schema",
+    "generate_openapi_json",
+    "generate_openapi_spec",
+    "generate_openapi_yaml",
+    "TypeScriptSDKConfig",
+    "TypeScriptSDKGenerator",
+    "generate_typescript_client",
+    "generate_typescript_sdk",
+    "generate_typescript_types",
 ]
