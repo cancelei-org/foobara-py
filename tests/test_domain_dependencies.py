@@ -177,7 +177,7 @@ class TestCrossDomainCallEnforcement:
             def execute(self) -> dict:
                 # This should succeed because Users depends on Auth
                 auth_result = self.run_subcommand(Authenticate)
-                return {"email": self.inputs.email, "token": auth_result.result.token}
+                return {"email": self.inputs.email, "token": auth_result.token}
 
         # Should succeed
         outcome = CreateUser.run(email="test@example.com")
@@ -237,7 +237,7 @@ class TestCrossDomainCallEnforcement:
 
             def execute(self) -> dict:
                 result = self.run_subcommand(Helper)
-                return {"email": self.inputs.email, "status": result.result}
+                return {"email": self.inputs.email, "status": result}
 
         # Should succeed - same domain
         outcome = CreateUser.run(email="test@example.com")
@@ -390,7 +390,7 @@ class TestDomainDependencyEdgeCases:
             def execute(self) -> str:
                 # Should succeed - global commands can always be called
                 result = self.run_subcommand(GlobalCommand)
-                return result.result
+                return result
 
         outcome = UserCommand.run()
         assert outcome.is_success()

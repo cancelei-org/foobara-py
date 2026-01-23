@@ -616,7 +616,37 @@ class Command(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
             Runs automatically after cast_and_validate_inputs().
             Override for custom loading logic or to load from multiple sources.
         """
-        pass
+        # Process _loads declarations
+        loads = getattr(self.__class__, "_loads", None)
+        if not loads:
+            return
+
+        for load_spec in loads:
+            # Get the primary key from inputs
+            input_value = getattr(self.inputs, load_spec.from_input, None)
+            if input_value is None:
+                if load_spec.required:
+                    self.add_input_error(
+                        (load_spec.from_input,),
+                        "not_found",
+                        f"{load_spec.entity_class.__name__} not found",
+                    )
+                continue
+
+            # Load the entity
+            entity = load_spec.entity_class.find(input_value)
+
+            if entity is None:
+                if load_spec.required:
+                    self.add_input_error(
+                        (load_spec.from_input,),
+                        "not_found",
+                        f"{load_spec.entity_class.__name__} with id {input_value} not found",
+                    )
+                else:
+                    setattr(self, load_spec.into, None)
+            else:
+                setattr(self, load_spec.into, entity)
 
     def validate_records(self) -> None:
         """
