@@ -1,7 +1,11 @@
 """
 Type system for Foobara Python.
 
-Provides type utilities and sensitive data handling.
+Provides:
+- Ruby-compatible type declarations with processors
+- Type registry for type lookup
+- Built-in casters, validators, and transformers
+- Sensitive data handling
 """
 
 from foobara_py.types.sensitive import (
@@ -17,7 +21,80 @@ from foobara_py.types.sensitive import (
     redact_dict,
 )
 
+from foobara_py.types.type_declarations import (
+    # Core classes
+    FoobaraType,
+    TypeRegistry,
+    TypeProcessor,
+    Caster,
+    Validator,
+    Transformer,
+    # Built-in casters
+    StringCaster,
+    IntegerCaster,
+    FloatCaster,
+    BooleanCaster,
+    DateCaster,
+    DateTimeCaster,
+    UUIDCaster,
+    ListCaster,
+    DictCaster,
+    # Built-in validators
+    RequiredValidator,
+    MinLengthValidator,
+    MaxLengthValidator,
+    MinValueValidator,
+    MaxValueValidator,
+    PatternValidator,
+    OneOfValidator,
+    EmailValidator,
+    URLValidator,
+    # Built-in transformers
+    StripWhitespaceTransformer,
+    LowercaseTransformer,
+    UppercaseTransformer,
+    TitleCaseTransformer,
+    RoundTransformer,
+    # Built-in types
+    StringType,
+    IntegerType,
+    FloatType,
+    BooleanType,
+    DateType,
+    DateTimeType,
+    UUIDType,
+    EmailType,
+    URLType,
+    PositiveIntegerType,
+    NonNegativeIntegerType,
+    PercentageType,
+    ArrayType,
+    HashType,
+    # DSL functions
+    type_declaration,
+    define_type,
+)
+
+from foobara_py.types.base import (
+    EmailAddress,
+    LongStr,
+    LowercaseStr,
+    MediumStr,
+    NonEmptyStr,
+    NonNegativeFloat,
+    NonNegativeInt,
+    Percentage,
+    PhoneNumber,
+    PositiveFloat,
+    PositiveInt,
+    ShortStr,
+    TitleCaseStr,
+    Username,
+    string_length,
+)
+
 __all__ = [
+    # Sensitive types
     "Sensitive",
     "SensitiveStr",
     "Password",
@@ -28,4 +105,71 @@ __all__ = [
     "is_sensitive",
     "get_sensitive_fields",
     "redact_dict",
+    # Core type system
+    "FoobaraType",
+    "TypeRegistry",
+    "TypeProcessor",
+    "Caster",
+    "Validator",
+    "Transformer",
+    # Built-in casters
+    "StringCaster",
+    "IntegerCaster",
+    "FloatCaster",
+    "BooleanCaster",
+    "DateCaster",
+    "DateTimeCaster",
+    "UUIDCaster",
+    "ListCaster",
+    "DictCaster",
+    # Built-in validators
+    "RequiredValidator",
+    "MinLengthValidator",
+    "MaxLengthValidator",
+    "MinValueValidator",
+    "MaxValueValidator",
+    "PatternValidator",
+    "OneOfValidator",
+    "EmailValidator",
+    "URLValidator",
+    # Built-in transformers
+    "StripWhitespaceTransformer",
+    "LowercaseTransformer",
+    "UppercaseTransformer",
+    "TitleCaseTransformer",
+    "RoundTransformer",
+    # Built-in types
+    "StringType",
+    "IntegerType",
+    "FloatType",
+    "BooleanType",
+    "DateType",
+    "DateTimeType",
+    "UUIDType",
+    "EmailType",
+    "URLType",
+    "PositiveIntegerType",
+    "NonNegativeIntegerType",
+    "PercentageType",
+    "ArrayType",
+    "HashType",
+    # DSL
+    "type_declaration",
+    "define_type",
+    # Pydantic type aliases
+    "EmailAddress",
+    "LongStr",
+    "LowercaseStr",
+    "MediumStr",
+    "NonEmptyStr",
+    "NonNegativeFloat",
+    "NonNegativeInt",
+    "Percentage",
+    "PhoneNumber",
+    "PositiveFloat",
+    "PositiveInt",
+    "ShortStr",
+    "TitleCaseStr",
+    "Username",
+    "string_length",
 ]
