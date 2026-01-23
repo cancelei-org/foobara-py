@@ -1,0 +1,62 @@
+"""List {{ entity_name }}s command."""
+
+from typing import List, Optional
+from pydantic import BaseModel
+from foobara_py import Command{% if domain_name %}, Domain{% endif %}
+
+from {{ entity_module }} import {{ entity_name }}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for listing {{ entity_name }}s."""
+
+    # Optional filters
+{% for field in non_pk_fields %}
+    {{ field.name }}: Optional[{{ field.type }}] = None{% if field.description %}  # Filter by {{ field.description | lower }}{% endif %}
+
+{% endfor %}
+    # Pagination
+    limit: Optional[int] = None  # Maximum number of results
+    offset: Optional[int] = None  # Number of results to skip
+
+
+{% if domain_name %}
+@{{ domain_name | snake_case }}_domain.command
+{% endif %}
+class {{ command_name }}(Command[{{ command_name }}Inputs, List[{{ entity_name }}]]):
+    """
+    List all {{ entity_name }}s with optional filtering.
+
+    Retrieves {{ entity_name }} records, optionally filtered by provided criteria.
+
+    Returns:
+        List of {{ entity_name }} instances matching the criteria.
+    """
+
+    def execute(self) -> List[{{ entity_name }}]:
+        """Execute the command."""
+        # Build filter criteria from non-None inputs
+        filters = {}
+{% for field in non_pk_fields %}
+        if self.inputs.{{ field.name }} is not None:
+            filters["{{ field.name }}"] = self.inputs.{{ field.name }}
+{% endfor %}
+
+        # Query entities
+        if filters:
+            results = {{ entity_name }}.find_by(**filters)
+        else:
+            results = {{ entity_name }}.find_all()
+
+        # Apply pagination
+        if self.inputs.offset is not None:
+            results = results[self.inputs.offset:]
+        if self.inputs.limit is not None:
+            results = results[:self.inputs.limit]
+
+        return results

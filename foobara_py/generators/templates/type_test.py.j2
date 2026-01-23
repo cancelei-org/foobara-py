@@ -1,0 +1,213 @@
+"""Tests for {{ type_name | pascal_case }} {{ kind }}"""
+
+import pytest
+from {{ module_path }} import {{ type_name | pascal_case }}
+{% if kind == "entity" %}
+from foobara_py.persistence.entity import EntityBase
+{% elif kind == "model" %}
+{% if mutable %}
+from foobara_py.persistence.entity import MutableModel
+{% else %}
+from foobara_py.persistence.entity import Model
+{% endif %}
+{% endif %}
+
+
+class Test{{ type_name | pascal_case }}:
+    """Test {{ type_name | pascal_case }} {{ kind }}"""
+
+{% if kind == "type" %}
+    def test_type_validation(self):
+        """Should validate {{ type_name | pascal_case }} type"""
+        # TODO: Add validation tests for {{ type_name | pascal_case }}
+        from pydantic import BaseModel
+
+        class TestModel(BaseModel):
+            value: {{ type_name | pascal_case }}
+
+        # Test valid value
+        # model = TestModel(value=...)
+        # assert model.value == expected
+
+        # Test invalid value
+        # with pytest.raises(ValueError):
+        #     TestModel(value=invalid_value)
+        pass
+
+{% elif kind == "model" %}
+    def test_create_{{ type_name | snake_case }}(self):
+        """Should create {{ type_name | pascal_case }} instance"""
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}={% if field.type == "str" %}"test_{{ field.name }}"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endif %}
+{% endfor %}
+        )
+
+{% for field in fields %}
+{% if not field.is_optional %}
+        assert {{ type_name | snake_case }}.{{ field.name }} == {% if field.type == "str" %}"test_{{ field.name }}"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %}
+
+{% endif %}
+{% endfor %}
+{% else %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}()
+        assert {{ type_name | snake_case }} is not None
+{% endif %}
+
+    def test_{{ type_name | snake_case }}_is_model(self):
+        """Should be a {% if mutable %}MutableModel{% else %}Model{% endif %} subclass"""
+{% if mutable %}
+        assert issubclass({{ type_name | pascal_case }}, MutableModel)
+{% else %}
+        assert issubclass({{ type_name | pascal_case }}, Model)
+{% endif %}
+
+{% if not mutable %}
+    def test_{{ type_name | snake_case }}_is_immutable(self):
+        """Should be immutable (frozen)"""
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}={% if field.type == "str" %}"test"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endif %}
+{% endfor %}
+        )
+
+        with pytest.raises(Exception):  # ValidationError for frozen model
+            {{ type_name | snake_case }}.{{ fields[0].name }} = "new_value"
+{% else %}
+        pass  # No fields to test immutability
+{% endif %}
+
+    def test_{{ type_name | snake_case }}_with_updates(self):
+        """Should create new instance with updates"""
+{% if has_fields %}
+        original = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}={% if field.type == "str" %}"original"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endif %}
+{% endfor %}
+        )
+
+        updated = original.with_updates({{ fields[0].name }}={% if fields[0].type == "str" %}"updated"{% elif fields[0].type == "int" %}2{% elif fields[0].type == "float" %}2.0{% elif fields[0].type == "bool" %}False{% else %}None{% endif %})
+
+        # Original unchanged
+        assert original.{{ fields[0].name }} == {% if fields[0].type == "str" %}"original"{% elif fields[0].type == "int" %}1{% elif fields[0].type == "float" %}1.0{% elif fields[0].type == "bool" %}True{% else %}None{% endif %}
+
+        # Updated has new value
+        assert updated.{{ fields[0].name }} == {% if fields[0].type == "str" %}"updated"{% elif fields[0].type == "int" %}2{% elif fields[0].type == "float" %}2.0{% elif fields[0].type == "bool" %}False{% else %}None{% endif %}
+
+{% else %}
+        pass  # No fields to test updates
+{% endif %}
+
+{% endif %}
+    def test_{{ type_name | snake_case }}_equality(self):
+        """Should compare by value"""
+{% if has_fields %}
+        {{ type_name | snake_case }}1 = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}={% if field.type == "str" %}"same"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endif %}
+{% endfor %}
+        )
+        {{ type_name | snake_case }}2 = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}={% if field.type == "str" %}"same"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endif %}
+{% endfor %}
+        )
+
+        assert {{ type_name | snake_case }}1 == {{ type_name | snake_case }}2
+{% else %}
+        pass  # No fields to test equality
+{% endif %}
+
+{% elif kind == "entity" %}
+    def test_create_{{ type_name | snake_case }}(self):
+        """Should create {{ type_name | pascal_case }} instance"""
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+            {{ field.name }}={% if field.type == "str" %}"test_{{ field.name }}"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        )
+
+        assert {{ type_name | snake_case }} is not None
+{% for field in fields %}
+        assert {{ type_name | snake_case }}.{{ field.name }} == {% if field.type == "str" %}"test_{{ field.name }}"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %}
+
+{% endfor %}
+{% else %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}({{ primary_key }}=1)
+        assert {{ type_name | snake_case }} is not None
+{% endif %}
+
+    def test_{{ type_name | snake_case }}_is_entity(self):
+        """Should be an EntityBase subclass"""
+        assert issubclass({{ type_name | pascal_case }}, EntityBase)
+
+    def test_{{ type_name | snake_case }}_primary_key(self):
+        """Should have correct primary key"""
+        assert {{ type_name | pascal_case }}._primary_key_field == '{{ primary_key }}'
+
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+            {{ field.name }}={% if field.type == "str" %}"test"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        )
+
+        assert {{ type_name | snake_case }}.primary_key == {{ type_name | snake_case }}.{{ primary_key }}
+{% endif %}
+
+    def test_{{ type_name | snake_case }}_is_new(self):
+        """Should track new vs persisted state"""
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+            {{ field.name }}={% if field.type == "str" %}"test"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        )
+
+        assert {{ type_name | snake_case }}.is_new
+        assert not {{ type_name | snake_case }}.is_persisted
+{% else %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}({{ primary_key }}=1)
+        assert {{ type_name | snake_case }}.is_new
+{% endif %}
+
+    def test_{{ type_name | snake_case }}_dirty_tracking(self):
+        """Should track dirty attributes"""
+{% if has_fields %}
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+            {{ field.name }}={% if field.type == "str" %}"test"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        )
+
+        # Mark as persisted to enable dirty tracking
+        {{ type_name | snake_case }}.mark_persisted()
+
+        # Initially not dirty
+        assert not {{ type_name | snake_case }}.is_dirty
+
+        # Modify attribute
+        {{ type_name | snake_case }}.{{ fields[0].name }} = {% if fields[0].type == "str" %}"modified"{% elif fields[0].type == "int" %}2{% elif fields[0].type == "float" %}2.0{% elif fields[0].type == "bool" %}False{% else %}None{% endif %}
+
+
+        # Now dirty
+        assert {{ type_name | snake_case }}.is_dirty
+        assert '{{ fields[0].name }}' in {{ type_name | snake_case }}.dirty_attributes
+{% else %}
+        pass  # No fields to track
+{% endif %}
+
+{% endif %}

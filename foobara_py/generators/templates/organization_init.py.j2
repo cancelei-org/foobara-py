@@ -1,0 +1,28 @@
+"""
+{{ organization_name }} - {{ description or 'Foobara Organization' }}
+
+{% if description %}
+{{ description }}
+{% endif %}
+
+This organization contains the following domains:
+{% for domain in domains %}
+- {{ domain }}
+{% endfor %}
+"""
+
+# Organization metadata
+__organization__ = "{{ organization_name }}"
+__version__ = "{{ version or '0.1.0' }}"
+
+# Domain imports
+{% for domain in domains %}
+from {{ organization_name|lower }}.{{ domain|lower }} import {{ domain }}Domain
+{% endfor %}
+
+# Export all domains
+__all__ = [
+    {% for domain in domains %}
+    "{{ domain }}Domain",
+    {% endfor %}
+]

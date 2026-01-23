@@ -1,0 +1,59 @@
+"""{{ description or (type_name | pascal_case) + ' entity' }}"""
+
+from typing import Optional, Any, Dict, List
+from foobara_py.persistence.entity import EntityBase, entity
+{% if domain_name %}
+from foobara_py import Domain
+{% endif %}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+
+@entity(primary_key='{{ primary_key }}')
+class {{ type_name | pascal_case }}(EntityBase):
+    """
+    {{ description or (type_name | pascal_case) + ' entity.' }}
+
+    A database-backed entity with:
+    - Primary key: {{ primary_key }}
+    - Dirty attribute tracking
+    - CRUD operations (create, find, save, delete)
+
+    Attributes:
+{% for field in fields %}
+        {{ field.name }}: {{ field.description or field.type }}{% if field.name == primary_key %} (primary key){% endif %}
+
+{% endfor %}
+
+    Usage:
+        # Create new entity
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+            {{ field.name }}=...,
+{% endfor %}
+        )
+        {{ type_name | snake_case }}.save()
+
+        # Find by primary key
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}.find({{ primary_key }}_value)
+
+        # Update
+        {{ type_name | snake_case }}.{{ fields[0].name if fields else "field" }} = new_value
+        {{ type_name | snake_case }}.save()
+
+        # Delete
+        {{ type_name | snake_case }}.delete()
+    """
+
+    _primary_key_field = '{{ primary_key }}'
+
+{% for field in fields %}
+    {{ field.name }}: {{ field.type }}{% if field.default is defined and field.default is not none %} = {{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+{% endfor %}
+{% if fields|length == 0 %}
+    {{ primary_key }}: int  # Primary key
+{% endif %}

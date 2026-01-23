@@ -1,0 +1,43 @@
+"""
+Pytest configuration and fixtures for {{ project_name }}.
+"""
+
+import pytest
+from foobara_py.persistence.in_memory_driver import InMemoryCRUDDriver
+from foobara_py.persistence.repository import Repository, RepositoryRegistry
+
+
+@pytest.fixture(autouse=True)
+def reset_registries():
+    """Reset all registries before each test."""
+    from foobara_py.core.registry import CommandRegistry
+    from foobara_py.persistence.entity import EntityRegistry
+
+    # Clear registries
+    CommandRegistry.clear()
+    EntityRegistry.clear()
+    RepositoryRegistry.clear()
+
+    yield
+
+    # Cleanup after test
+    CommandRegistry.clear()
+    EntityRegistry.clear()
+    RepositoryRegistry.clear()
+
+
+@pytest.fixture
+def in_memory_repo():
+    """Create an in-memory repository for testing."""
+    driver = InMemoryCRUDDriver()
+    repo = Repository(driver)
+    return repo
+
+
+@pytest.fixture
+def register_repo(in_memory_repo):
+    """Register the in-memory repository as default."""
+    def _register(entity_class):
+        RepositoryRegistry.register(entity_class, in_memory_repo)
+        return in_memory_repo
+    return _register

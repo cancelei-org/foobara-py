@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+"""
+CLI entry point for {{ app_name or 'Foobara Application' }}
+
+{{ description or 'Command-line interface for running commands.' }}
+"""
+
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent{% if levels_up %}.parent{% for _ in range(levels_up - 1) %}.parent{% endfor %}{% endif %}
+sys.path.insert(0, str(project_root))
+
+from foobara_py.connectors.cli import CLIConnector, CLIAppConfig, OutputFormat
+
+{% if import_commands %}
+# Import commands
+{% for import_stmt in import_commands %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
+{% if import_domains %}
+# Import domains
+{% for import_stmt in import_domains %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
+{% if import_organizations %}
+# Import organizations
+{% for import_stmt in import_organizations %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
+
+def main():
+    """Main CLI entry point"""
+    # Create CLI connector
+    config = CLIAppConfig(
+        name="{{ cli_name or 'foobara' }}",
+        help="{{ help_text or 'Command-line interface' }}",
+        default_output_format=OutputFormat.{{ output_format or 'JSON' }}
+    )
+
+    cli = CLIConnector(config=config)
+
+    {% if commands %}
+    # Register individual commands
+    {% for command in commands %}
+    cli.register({{ command }})
+    {% endfor %}
+    {% endif %}
+
+    {% if domains %}
+    # Register domains
+    {% for domain in domains %}
+    cli.register_domain({{ domain }})
+    {% endfor %}
+    {% endif %}
+
+    {% if organizations %}
+    # Register organizations
+    {% for org in organizations %}
+    cli.register_organization({{ org }})
+    {% endfor %}
+    {% endif %}
+
+    # Run CLI
+    cli.run()
+
+
+if __name__ == "__main__":
+    main()

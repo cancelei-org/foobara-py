@@ -1,0 +1,51 @@
+"""Create {{ entity_name }} command."""
+
+from typing import Optional
+from pydantic import BaseModel
+from foobara_py import Command{% if domain_name %}, Domain{% endif %}
+
+from {{ entity_module }} import {{ entity_name }}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for creating a new {{ entity_name }}."""
+{% for field in non_pk_fields %}
+    {{ field.name }}: {{ field.type }}{% if field.default is defined and field.default is not none %} = {{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+{% endfor %}
+{% if non_pk_fields|length == 0 %}
+    pass
+{% endif %}
+
+
+{% if domain_name %}
+@{{ domain_name | snake_case }}_domain.command
+{% endif %}
+class {{ command_name }}(Command[{{ command_name }}Inputs, {{ entity_name }}]):
+    """
+    Create a new {{ entity_name }}.
+
+    Creates a new {{ entity_name }} record with the provided attributes
+    and persists it to the database.
+
+    Returns:
+        The created {{ entity_name }} instance with generated primary key.
+    """
+
+    def execute(self) -> {{ entity_name }}:
+        """Execute the command."""
+        # Create entity from inputs
+        entity = {{ entity_name }}(
+{% for field in non_pk_fields %}
+            {{ field.name }}=self.inputs.{{ field.name }},
+{% endfor %}
+        )
+
+        # Save and return
+        entity.save()
+        return entity

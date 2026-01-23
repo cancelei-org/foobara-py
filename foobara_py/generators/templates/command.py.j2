@@ -1,0 +1,37 @@
+"""{{ description or (command_name | pascal_case) + ' command' }}"""
+
+{% if has_inputs %}
+from pydantic import BaseModel
+{% endif %}
+from foobara_py import Command{% if domain_name %}, Domain{% endif %}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+{% if has_inputs %}
+
+class {{ command_name | pascal_case }}Inputs(BaseModel):
+    """Inputs for {{ command_name | pascal_case }} command"""
+{% for field in input_fields %}
+    {{ field.name }}: {{ field.type }}{% if field.default %}{{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+{% endfor %}
+
+{% endif %}
+{% if domain_name %}
+@{{ domain_name | snake_case }}_domain.command
+{% endif %}
+class {{ command_name | pascal_case }}(Command{% if has_inputs or result_type %}[{% if has_inputs %}{{ command_name | pascal_case }}Inputs{% endif %}{% if has_inputs and result_type %}, {% endif %}{% if result_type %}{{ result_type }}{% endif %}]{% endif %}):
+    """{{ description or (command_name | pascal_case) + ' command' }}"""
+
+    def execute(self) -> {% if result_type %}{{ result_type }}{% else %}None{% endif %}:
+        """Execute the command"""
+        {% if has_inputs %}
+        # Access inputs via self.inputs
+        # Example: value = self.inputs.{{ input_fields[0].name if input_fields }}
+        {% endif %}
+
+        # TODO: Implement command logic
+        raise NotImplementedError("{{ command_name | pascal_case }}.execute() not yet implemented")

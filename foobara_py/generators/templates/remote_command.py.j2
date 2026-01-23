@@ -1,0 +1,77 @@
+"""
+{{ command_name }} - Remote Command
+
+{{ description or 'Remote command imported from ' + manifest_url }}
+
+Auto-generated from manifest at: {{ manifest_url }}
+Generated at: {{ generated_at }}
+"""
+
+from typing import Optional
+from pydantic import BaseModel, Field
+from foobara_py.remote.remote_command import RemoteCommand
+from foobara_py.core.outcome import CommandOutcome
+
+
+{% if inputs_fields %}
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for {{ command_name }}"""
+    {% for field in inputs_fields %}
+    {{ field.name }}: {{ field.type_annotation }}{% if field.has_default %} = {{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+    {% endfor %}
+{% else %}
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for {{ command_name }}"""
+    pass
+{% endif %}
+
+
+{% if result_fields %}
+class {{ command_name }}Result(BaseModel):
+    """Result for {{ command_name }}"""
+    {% for field in result_fields %}
+    {{ field.name }}: {{ field.type_annotation }}{% if field.has_default %} = {{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+    {% endfor %}
+{% endif %}
+
+
+class {{ command_name }}(RemoteCommand[{{ command_name }}Inputs, {% if result_fields %}{{ command_name }}Result{% else %}dict{% endif %}]):
+    """
+    {{ description or 'Remote command: ' + full_name }}
+
+    {% if domain %}
+    Domain: {{ domain }}
+    {% endif %}
+    {% if organization %}
+    Organization: {{ organization }}
+    {% endif %}
+
+    Remote URL: {{ remote_url }}
+    Command Name: {{ full_name }}
+    """
+
+    _remote_url = "{{ remote_url }}"
+    _command_name = "{{ full_name }}"
+    _timeout = {{ timeout }}
+    _headers = {{ headers }}
+    _description = "{{ description or '' }}"
+    _domain = {{ '"' + domain + '"' if domain else 'None' }}
+    _organization = {{ '"' + organization + '"' if organization else 'None' }}
+
+
+# Convenience function
+def {{ function_name }}(**inputs) -> CommandOutcome{% if result_fields %}[{{ command_name }}Result]{% endif %}:
+    """
+    Run {{ command_name }} command.
+
+    Args:
+        {% for field in inputs_fields %}
+        {{ field.name }}: {{ field.description or field.name }}
+        {% endfor %}
+
+    Returns:
+        CommandOutcome with result or errors
+    """
+    return {{ command_name }}.run(**inputs)

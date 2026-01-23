@@ -1,0 +1,128 @@
+"""Tests for {{ command_name }} command."""
+
+import pytest
+from unittest.mock import MagicMock, patch
+
+# Import command once implemented
+# from {{ entity_module.rsplit('.', 1)[0] }}.commands.{{ command_name | snake_case }} import {{ command_name }}
+
+
+class Test{{ command_name }}:
+    """Test {{ command_name }} command."""
+
+{% if operation == "create" %}
+    def test_creates_{{ entity_name | snake_case }}(self):
+        """Should create a new {{ entity_name }}"""
+        # TODO: Implement test
+        # inputs = {{ command_name }}Inputs(
+{% for field in non_pk_fields %}
+        #     {{ field.name }}={% if field.type == "str" %}"test_{{ field.name }}"{% elif field.type == "int" %}1{% elif field.type == "float" %}1.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        # )
+        #
+        # result = {{ command_name }}.run(**inputs.model_dump())
+        #
+        # assert result.is_success
+        # assert result.result.{{ primary_key }} is not None
+        pass
+
+    def test_validates_required_fields(self):
+        """Should validate required fields"""
+        # TODO: Implement validation test
+        pass
+
+{% elif operation == "read" %}
+    def test_finds_existing_{{ entity_name | snake_case }}(self):
+        """Should find {{ entity_name }} by {{ primary_key }}"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run({{ primary_key }}=1)
+        #
+        # assert result.is_success
+        # assert result.result is not None
+        # assert result.result.{{ primary_key }} == 1
+        pass
+
+    def test_returns_none_for_missing_{{ entity_name | snake_case }}(self):
+        """Should return None when {{ entity_name }} not found"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run({{ primary_key }}=99999)
+        #
+        # assert result.is_success
+        # assert result.result is None
+        pass
+
+{% elif operation == "update" %}
+    def test_updates_{{ entity_name | snake_case }}(self):
+        """Should update existing {{ entity_name }}"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run(
+        #     {{ primary_key }}=1,
+{% for field in non_pk_fields %}
+        #     {{ field.name }}={% if field.type == "str" %}"updated"{% elif field.type == "int" %}2{% elif field.type == "float" %}2.0{% elif field.type == "bool" %}True{% else %}None{% endif %},
+{% endfor %}
+        # )
+        #
+        # assert result.is_success
+        # assert result.result.{{ non_pk_fields[0].name if non_pk_fields else primary_key }} == ...
+        pass
+
+    def test_raises_not_found_for_missing_{{ entity_name | snake_case }}(self):
+        """Should raise NotFoundError when {{ entity_name }} not found"""
+        # TODO: Implement test
+        # with pytest.raises(NotFoundError):
+        #     {{ command_name }}.run!({{ primary_key }}=99999)
+        pass
+
+    def test_only_updates_provided_fields(self):
+        """Should only update non-None fields"""
+        # TODO: Implement test
+        pass
+
+{% elif operation == "delete" %}
+    def test_deletes_{{ entity_name | snake_case }}(self):
+        """Should delete existing {{ entity_name }}"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run({{ primary_key }}=1)
+        #
+        # assert result.is_success
+        # assert result.result is True
+        pass
+
+    def test_raises_not_found_for_missing_{{ entity_name | snake_case }}(self):
+        """Should raise NotFoundError when {{ entity_name }} not found"""
+        # TODO: Implement test
+        # with pytest.raises(NotFoundError):
+        #     {{ command_name }}.run!({{ primary_key }}=99999)
+        pass
+
+{% elif operation == "list" %}
+    def test_lists_all_{{ entity_name | snake_case }}s(self):
+        """Should list all {{ entity_name }}s"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run()
+        #
+        # assert result.is_success
+        # assert isinstance(result.result, list)
+        pass
+
+    def test_filters_{{ entity_name | snake_case }}s(self):
+        """Should filter {{ entity_name }}s by criteria"""
+        # TODO: Implement test
+{% if non_pk_fields %}
+        # result = {{ command_name }}.run({{ non_pk_fields[0].name }}=...)
+        #
+        # assert result.is_success
+        # assert all(e.{{ non_pk_fields[0].name }} == ... for e in result.result)
+{% endif %}
+        pass
+
+    def test_paginates_results(self):
+        """Should support limit and offset pagination"""
+        # TODO: Implement test
+        # result = {{ command_name }}.run(limit=10, offset=5)
+        #
+        # assert result.is_success
+        # assert len(result.result) <= 10
+        pass
+
+{% endif %}

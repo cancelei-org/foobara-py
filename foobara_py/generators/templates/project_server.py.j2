@@ -1,0 +1,35 @@
+"""
+{{ project_name }} API server.
+
+Exposes Foobara commands via HTTP API.
+"""
+
+import uvicorn
+from foobara_py.connectors.http import HTTPConnector
+
+# Import to register all commands
+from {{ package_name }} import domains, commands
+
+
+def create_app():
+    """Create the ASGI application."""
+    connector = HTTPConnector()
+    return connector.to_asgi_app()
+
+
+# Create app instance
+app = create_app()
+
+
+def main():
+    """Run the API server."""
+    uvicorn.run(
+        "{{ package_name }}.server:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,44 @@
+"""
+{{ description or (domain_name | pascal_case) + ' domain.' }}
+
+This domain provides commands, types, and entities for {{ domain_name | pascal_case | lower }} functionality.
+{% if has_dependencies %}
+
+Dependencies:
+{% for dep in dependencies %}
+    - {{ dep }}
+{% endfor %}
+{% endif %}
+"""
+
+from foobara_py import Domain
+
+{% if has_dependencies %}
+# Import dependencies
+{% for dep in dependencies %}
+# from ..{{ dep | snake_case }} import {{ dep | snake_case }}_domain
+{% endfor %}
+
+{% endif %}
+# Create domain instance
+{{ domain_name | snake_case }}_domain = Domain(
+    "{{ domain_name | pascal_case }}",
+{% if organization_name %}
+    organization="{{ organization_name | pascal_case }}",
+{% endif %}
+{% if has_dependencies %}
+    dependencies=[
+{% for dep in dependencies %}
+        "{{ dep | pascal_case }}",
+{% endfor %}
+    ],
+{% endif %}
+)
+
+# Re-export domain for convenience
+__all__ = ["{{ domain_name | snake_case }}_domain"]
+
+# Import submodules to register commands, types, entities
+# from .commands import *
+# from .types import *
+# from .entities import *

@@ -1,0 +1,48 @@
+"""{{ description or (type_name | pascal_case) + ' model' }}"""
+
+from typing import Optional, Any, Dict
+{% if mutable %}
+from foobara_py.persistence.entity import MutableModel
+{% else %}
+from foobara_py.persistence.entity import Model
+{% endif %}
+
+
+class {{ type_name | pascal_case }}({% if mutable %}MutableModel{% else %}Model{% endif %}):
+    """
+    {{ description or (type_name | pascal_case) + ' value object.' }}
+
+{% if not mutable %}
+    This is an immutable value object. Use with_updates() to create
+    modified copies.
+{% else %}
+    This is a mutable model. Attributes can be modified in place.
+{% endif %}
+
+    Attributes:
+{% for field in fields %}
+        {{ field.name }}: {{ field.description or field.type }}
+{% endfor %}
+
+    Usage:
+        {{ type_name | snake_case }} = {{ type_name | pascal_case }}(
+{% for field in fields %}
+{% if not field.is_optional %}
+            {{ field.name }}=...,
+{% endif %}
+{% endfor %}
+        )
+{% if not mutable %}
+
+        # Create modified copy
+        updated = {{ type_name | snake_case }}.with_updates({{ fields[0].name if fields else "field" }}=new_value)
+{% endif %}
+    """
+
+{% for field in fields %}
+    {{ field.name }}: {{ field.type }}{% if field.default is defined and field.default is not none %} = {{ field.default }}{% endif %}{% if field.description %}  # {{ field.description }}{% endif %}
+
+{% endfor %}
+{% if fields|length == 0 %}
+    pass
+{% endif %}

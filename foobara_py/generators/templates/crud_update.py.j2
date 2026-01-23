@@ -1,0 +1,62 @@
+"""Update {{ entity_name }} command."""
+
+from typing import Optional
+from pydantic import BaseModel
+from foobara_py import Command{% if domain_name %}, Domain{% endif %}
+from foobara_py.core.errors import NotFoundError
+
+from {{ entity_module }} import {{ entity_name }}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for updating a {{ entity_name }}."""
+
+    {{ primary_key }}: {{ pk_field.type }}{% if pk_field.description %}  # {{ pk_field.description }}{% endif %}
+
+{% for field in non_pk_fields %}
+    {{ field.name }}: Optional[{{ field.type }}] = None{% if field.description %}  # {{ field.description }}{% endif %}
+
+{% endfor %}
+
+
+{% if domain_name %}
+@{{ domain_name | snake_case }}_domain.command
+{% endif %}
+class {{ command_name }}(Command[{{ command_name }}Inputs, {{ entity_name }}]):
+    """
+    Update an existing {{ entity_name }}.
+
+    Updates a {{ entity_name }} record with the provided attributes.
+    Only non-None fields are updated.
+
+    Returns:
+        The updated {{ entity_name }} instance.
+
+    Raises:
+        NotFoundError: If {{ entity_name }} with given {{ primary_key }} not found.
+    """
+
+    def execute(self) -> {{ entity_name }}:
+        """Execute the command."""
+        # Find existing entity
+        entity = {{ entity_name }}.find(self.inputs.{{ primary_key }})
+
+        if not entity:
+            raise NotFoundError(
+                f"{{ entity_name }} with {{ primary_key }}={self.inputs.{{ primary_key }}} not found"
+            )
+
+        # Update provided fields
+{% for field in non_pk_fields %}
+        if self.inputs.{{ field.name }} is not None:
+            entity.{{ field.name }} = self.inputs.{{ field.name }}
+{% endfor %}
+
+        # Save and return
+        entity.save()
+        return entity

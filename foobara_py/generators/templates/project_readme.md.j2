@@ -1,0 +1,76 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Quick Start
+
+```python
+from {{ package_name }} import *
+
+# Run a command
+result = YourCommand.run(input_value="example")
+
+if result.is_success:
+    print(result.result)
+else:
+    print(result.errors)
+```
+
+{% if is_api %}
+## Running the API Server
+
+```bash
+{{ package_name }}-server
+# or
+python -m {{ package_name }}.server
+```
+
+The API will be available at http://localhost:8000
+{% endif %}
+
+## Project Structure
+
+```
+{{ package_name }}/
+├── __init__.py          # Package initialization
+├── domains/             # Domain definitions
+│   └── __init__.py
+├── commands/            # Global commands
+│   └── __init__.py
+├── entities/            # Entity definitions
+│   └── __init__.py
+{% if is_api %}
+└── server.py            # API server
+{% endif %}
+```
+
+## Development
+
+### Running Tests
+
+```bash
+pytest
+```
+
+### Code Formatting
+
+```bash
+black {{ package_name }} tests
+ruff check {{ package_name }} tests
+```
+
+### Type Checking
+
+```bash
+mypy {{ package_name }}
+```
+
+## License
+
+MIT

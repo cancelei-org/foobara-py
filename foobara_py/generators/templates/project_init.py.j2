@@ -1,0 +1,36 @@
+"""
+{{ project_name }} - {{ description }}
+
+A Foobara Python application.
+"""
+
+__version__ = "0.1.0"
+
+# Import core Foobara components
+from foobara_py import Command, Domain, Outcome
+from foobara_py.persistence.entity import EntityBase, Model
+
+# Import domains (register them)
+from {{ package_name }} import domains
+from {{ package_name }} import commands
+from {{ package_name }} import entities
+
+# Re-export for convenience
+__all__ = [
+    "Command",
+    "Domain",
+    "Outcome",
+    "EntityBase",
+    "Model",
+    "__version__",
+]
+
+
+def main():
+    """Main entry point."""
+    print(f"{{ project_name }} v{__version__}")
+    print("Run '{{ package_name }} --help' for usage information.")
+
+
+if __name__ == "__main__":
+    main()

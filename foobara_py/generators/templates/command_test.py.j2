@@ -1,0 +1,60 @@
+"""Tests for {{ command_name | pascal_case }} command"""
+
+import pytest
+from {{ module_path }} import {{ command_name | pascal_case }}{% if has_inputs %}, {{ command_name | pascal_case }}Inputs{% endif %}
+
+
+class Test{{ command_name | pascal_case }}:
+    """Test suite for {{ command_name | pascal_case }} command"""
+
+    def test_command_runs_successfully(self):
+        """Should run command successfully"""
+        {% if has_inputs %}
+        # TODO: Provide valid inputs
+        inputs = {
+        {% for field in input_fields %}
+            "{{ field.name }}": None,  # TODO: Set value
+        {% endfor %}
+        }
+
+        outcome = {{ command_name | pascal_case }}.run(**inputs)
+        {% else %}
+        outcome = {{ command_name | pascal_case }}.run()
+        {% endif %}
+
+        assert outcome.is_success()
+        {% if result_type and result_type != 'None' %}
+        result = outcome.result
+        assert result is not None
+        # TODO: Add assertions for result
+        {% endif %}
+
+    {% if has_inputs %}
+    def test_command_with_invalid_inputs(self):
+        """Should fail with invalid inputs"""
+        # TODO: Provide invalid inputs
+        invalid_inputs = {}
+
+        outcome = {{ command_name | pascal_case }}.run(**invalid_inputs)
+
+        assert outcome.is_failure()
+        # TODO: Add assertions for specific errors
+
+    {% endif %}
+    def test_command_execution_logic(self):
+        """Should execute command logic correctly"""
+        {% if has_inputs %}
+        # TODO: Test specific execution logic
+        inputs = {
+        {% for field in input_fields %}
+            "{{ field.name }}": None,  # TODO: Set test value
+        {% endfor %}
+        }
+
+        outcome = {{ command_name | pascal_case }}.run(**inputs)
+        {% else %}
+        outcome = {{ command_name | pascal_case }}.run()
+        {% endif %}
+
+        # TODO: Add specific assertions
+        assert outcome.is_success()

@@ -1,0 +1,89 @@
+"""{{ description or (type_name | pascal_case) + ' type' }}"""
+
+from typing import Annotated
+{% if has_validators %}
+from pydantic import Field, AfterValidator, BeforeValidator
+{% else %}
+from pydantic import Field
+{% endif %}
+
+
+{% if has_validators %}
+# Validators
+{% for validator in validators %}
+{% if validator == "strip_whitespace" %}
+def _strip_whitespace(v: {{ base_type }}) -> {{ base_type }}:
+    """Strip whitespace from string"""
+    return v.strip() if isinstance(v, str) else v
+
+{% elif validator == "validate_email" %}
+import re
+
+def _validate_email(v: str) -> str:
+    """Validate email format"""
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    if not re.match(pattern, v):
+        raise ValueError('Invalid email format')
+    return v.lower()
+
+{% elif validator == "validate_url" %}
+import re
+
+def _validate_url(v: str) -> str:
+    """Validate URL format"""
+    pattern = r'^https?://[\w\.-]+(?:/[\w\.-]*)*$'
+    if not re.match(pattern, v):
+        raise ValueError('Invalid URL format')
+    return v
+
+{% elif validator == "to_lowercase" %}
+def _to_lowercase(v: str) -> str:
+    """Convert to lowercase"""
+    return v.lower() if isinstance(v, str) else v
+
+{% elif validator == "to_uppercase" %}
+def _to_uppercase(v: str) -> str:
+    """Convert to uppercase"""
+    return v.upper() if isinstance(v, str) else v
+
+{% elif validator == "to_title_case" %}
+def _to_title_case(v: str) -> str:
+    """Convert to title case"""
+    return v.title() if isinstance(v, str) else v
+
+{% elif validator == "positive" %}
+def _validate_positive(v: {{ base_type }}) -> {{ base_type }}:
+    """Validate value is positive"""
+    if v <= 0:
+        raise ValueError('Value must be positive')
+    return v
+
+{% elif validator == "non_negative" %}
+def _validate_non_negative(v: {{ base_type }}) -> {{ base_type }}:
+    """Validate value is non-negative"""
+    if v < 0:
+        raise ValueError('Value must be non-negative')
+    return v
+
+{% else %}
+def _{{ validator }}(v: {{ base_type }}) -> {{ base_type }}:
+    """{{ validator | replace("_", " ") | title }}"""
+    # TODO: Implement {{ validator }}
+    return v
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{{ type_name | pascal_case }} = Annotated[
+    {{ base_type }},
+{% for validator in validators %}
+{% if validator == "strip_whitespace" %}
+    BeforeValidator(_strip_whitespace),
+{% elif validator in ["validate_email", "validate_url", "to_lowercase", "to_uppercase", "to_title_case", "positive", "non_negative"] %}
+    AfterValidator(_{{ validator }}),
+{% else %}
+    AfterValidator(_{{ validator }}),
+{% endif %}
+{% endfor %}
+]

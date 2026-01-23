@@ -1,0 +1,36 @@
+"""Get {{ entity_name }} command."""
+
+from typing import Optional
+from pydantic import BaseModel
+from foobara_py import Command{% if domain_name %}, Domain{% endif %}
+
+from {{ entity_module }} import {{ entity_name }}
+
+{% if domain_name %}
+
+{{ domain_name | snake_case }}_domain = Domain("{{ domain_name | pascal_case }}"{% if organization_name %}, organization="{{ organization_name | pascal_case }}"{% endif %})
+
+{% endif %}
+
+class {{ command_name }}Inputs(BaseModel):
+    """Inputs for getting a {{ entity_name }}."""
+
+    {{ primary_key }}: {{ pk_field.type }}{% if pk_field.description %}  # {{ pk_field.description }}{% endif %}
+
+
+{% if domain_name %}
+@{{ domain_name | snake_case }}_domain.command
+{% endif %}
+class {{ command_name }}(Command[{{ command_name }}Inputs, Optional[{{ entity_name }}]]):
+    """
+    Get a {{ entity_name }} by {{ primary_key }}.
+
+    Retrieves a single {{ entity_name }} record by its primary key.
+
+    Returns:
+        The {{ entity_name }} if found, None otherwise.
+    """
+
+    def execute(self) -> Optional[{{ entity_name }}]:
+        """Execute the command."""
+        return {{ entity_name }}.find(self.inputs.{{ primary_key }})

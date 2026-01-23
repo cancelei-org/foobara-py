@@ -1,0 +1,39 @@
+"""
+{{ description or 'Domain mapper for transforming between types.' }}
+"""
+
+from foobara_py.domain.domain_mapper import DomainMapper{% if domain_name %}, domain_mapper{% endif %}
+
+{% if from_type_import %}
+{{ from_type_import }}
+{% endif %}
+{% if to_type_import %}
+{{ to_type_import }}
+{% endif %}
+
+{% if domain_name %}
+@domain_mapper(domain="{{ domain_name }}"{% if organization_name %}, organization="{{ organization_name }}"{% endif %})
+{% endif %}
+class {{ mapper_name }}(DomainMapper[{{ from_type }}, {{ to_type }}]):
+    """
+    {{ description or 'Maps from ' + from_type + ' to ' + to_type + '.' }}
+    """
+
+    def map(self) -> {{ to_type }}:
+        """
+        Transform from {{ from_type }} to {{ to_type }}.
+
+        Returns:
+            Mapped {{ to_type }} instance
+        """
+        # TODO: Implement mapping logic
+        {% if is_simple_conversion %}
+        return {{ mapping_expression }}
+        {% else %}
+        # Example mapping:
+        # return {{ to_type }}(
+        #     field1=self.from_value.field1,
+        #     field2=self.from_value.field2,
+        # )
+        raise NotImplementedError("Implement your mapping logic here")
+        {% endif %}

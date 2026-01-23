@@ -1,0 +1,38 @@
+"""
+{{ domain_name | pascal_case }} domain {{ subdir_type }}.
+
+{% if subdir_type == "commands" %}
+Commands define the operations available in this domain.
+Each command is a self-contained unit with inputs, execution logic, and outputs.
+
+Usage:
+    from {{ domain_name | snake_case }}.commands import CreateUser
+
+    result = CreateUser.run(name="John", email="john@example.com")
+{% elif subdir_type == "types" %}
+Types define the data structures used in this domain.
+These include value objects, custom types, and type aliases.
+
+Usage:
+    from {{ domain_name | snake_case }}.types import EmailAddress, UserStatus
+{% elif subdir_type == "entities" %}
+Entities are domain objects with identity and persistence.
+They have primary keys and support CRUD operations.
+
+Usage:
+    from {{ domain_name | snake_case }}.entities import User
+
+    user = User.find(1)
+    user.name = "Updated Name"
+    user.save()
+{% endif %}
+"""
+
+# Import and re-export {{ subdir_type }} from this package
+# Example:
+# from .create_user import CreateUser
+# from .delete_user import DeleteUser
+#
+# __all__ = ["CreateUser", "DeleteUser"]
+
+__all__ = []
