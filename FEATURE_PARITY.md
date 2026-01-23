@@ -213,14 +213,14 @@ This document tracks feature parity between foobara-py (Python) and the Ruby Foo
   - Prompt building from inputs
   - JSON response parsing
 
-### Code Generation
-- ⚠️ **Generators** (Partial - 1/6 complete)
+### Code Generation (Complete)
+- ✅ **Generators** (6/6 complete)
   - ✅ **Files generator base** - Jinja2 template support, case conversion filters
-  - ❌ Command generator
-  - ❌ Domain generator
-  - ❌ Type/Entity generator
-  - ❌ AutoCRUD generator
-  - ❌ Project generator
+  - ✅ **Command generator** - Generate command classes with inputs, outputs, and tests (11 tests)
+  - ✅ **Domain generator** - Generate domain structure with subdirectories (10 tests)
+  - ✅ **Type/Entity generator** - Generate entities, models, and types with tests (14 tests)
+  - ✅ **AutoCRUD generator** - Generate Create/Read/Update/Delete/List commands (13 tests)
+  - ✅ **Project generator** - Generate complete project scaffolding (18 tests)
 
 - ❌ **CLI Tool (foob-py)**
   - Python equivalent of Ruby's `foob` CLI
@@ -267,14 +267,14 @@ This document tracks feature parity between foobara-py (Python) and the Ruby Foo
 | Connectors | 100% | 0% | 0% | 3/3 |
 | Data Transform | 100% | 0% | 0% | 2/2 |
 | Types | 100% | 0% | 0% | 5/5 |
-| Generators | 17% | 83% | 0% | 1/6 |
+| Generators | 100% | 0% | 0% | 6/6 |
 | AI/LLM | 0% | 0% | 100% | 0/4 |
 | Auth | 40% | 60% | 0% | 2/5 |
 
 ### Overall Parity
 - **Core Features**: ~100% complete (42/42 features)
-- **Advanced Features**: ~32% complete (6/19 features)
-- **Overall**: ~83% complete (48/58 total features)
+- **Advanced Features**: ~58% complete (11/19 features)
+- **Overall**: ~91% complete (53/58 total features)
 
 ## 🎯 Priority for Ruby Parity
 
@@ -282,10 +282,8 @@ This document tracks feature parity between foobara-py (Python) and the Ruby Foo
 All core features complete! Focus shifting to developer experience.
 
 ### Medium Priority (Developer experience)
-1. Generators (command, domain, type)
-2. CLI tool (foob-py)
-3. AutoCRUD generator
-4. Full manifest system
+1. CLI tool (foob-py) - Command-line interface for generators
+2. Full manifest system - Type manifest with Ruby compatibility
 
 ### Low Priority (Advanced/Optional features)
 1. LLM-backed commands
@@ -332,5 +330,10 @@ These additions achieved 95% Ruby parity roadmap progress with improved testing,
 2. ✅ Transformers System (FOOBARAPY-TRANSFORM-01) - Full implementation with pipeline, registry, input/result/error transformers
 3. ✅ Ruby-Compatible Type System (FOOBARAPY-TYPES-01) - FoobaraType class, TypeRegistry, built-in casters/validators/transformers, 14 built-in types, DSL functions
 4. ✅ Remote Imports System (FOOBARAPY-REMOTE-01) - RemoteImporter, RemoteCommand, ManifestCache, RemoteNamespace, import_remote()
+5. ✅ Command Generator (FOOBARAPY-GEN-CMD-01) - Full implementation with 11 tests
+6. ✅ Domain Generator (FOOBARAPY-GEN-DOM-01) - Full implementation with 10 tests
+7. ✅ Type/Entity Generator (FOOBARAPY-GEN-TYPE-01) - Full implementation with 14 tests
+8. ✅ AutoCRUD Generator (FOOBARAPY-GEN-CRUD-01) - Full implementation with 13 tests
+9. ✅ Project Generator (FOOBARAPY-GEN-PROJ-01) - Full implementation with 18 tests
 
-Documentation audit confirmed Desugarizers/Transformers/Remote Imports were already implemented. Added Ruby-compatible type declaration system with 64 tests. All core features now complete. Updated feature parity to ~83%.
+Documentation audit confirmed all generators were already fully implemented. Added Ruby-compatible type declaration system with 64 tests. Feature parity now ~91%.
