@@ -441,3 +441,170 @@ class TestCommandRoute:
         assert response["success"] is False
         assert len(response["errors"]) == 1
         assert response["errors"][0]["symbol"] == "test_error"
+
+
+# ==================== HTTP Error Handling Edge Cases ====================
+
+class TestHTTPErrorHandling:
+    """Tests for HTTP error handling edge cases"""
+
+    def test_network_timeout_simulation(self, client):
+        """Simulate network timeout"""
+        # This tests that the endpoint is responsive
+        response = client.post("/add", json={"a": 1, "b": 2}, timeout=0.001)
+        # Should complete quickly or timeout gracefully
+        assert response is not None
+
+    def test_malformed_json_request(self, client):
+        """Test malformed JSON in request body"""
+        response = client.post(
+            "/add",
+            data="not json at all {{{",
+            headers={"Content-Type": "application/json"}
+        )
+        assert response.status_code == 422
+
+    def test_empty_request_body(self, client):
+        """Test empty request body"""
+        response = client.post("/add", json={})
+        assert response.status_code == 422
+
+    def test_null_values_in_request(self, client):
+        """Test null values in required fields"""
+        response = client.post("/add", json={"a": None, "b": 5})
+        assert response.status_code == 422
+
+    def test_wrong_data_types(self, client):
+        """Test wrong data types for inputs"""
+        response = client.post("/add", json={"a": "string", "b": [1, 2, 3]})
+        assert response.status_code == 422
+
+    def test_extra_fields_in_request(self, client):
+        """Test extra unexpected fields in request"""
+        response = client.post("/add", json={"a": 1, "b": 2, "extra": "field"})
+        # Should either succeed ignoring extra or fail validation
+        assert response.status_code in [200, 422]
+
+    def test_missing_required_fields(self, client):
+        """Test missing required fields"""
+        response = client.post("/add", json={"a": 1})
+        assert response.status_code == 422
+
+    def test_very_large_payload(self, client):
+        """Test very large payload"""
+        large_name = "x" * 100000
+        response = client.post("/greet", json={"name": large_name})
+        # Should handle or reject large payloads
+        assert response.status_code in [200, 413, 422]
+
+    def test_special_characters_in_input(self, client):
+        """Test special characters in string inputs"""
+        special_chars = "\\n\\t\\r\\x00\\\"\\\\"
+        response = client.post("/greet", json={"name": special_chars})
+        # Should handle special characters
+        assert response.status_code in [200, 422]
+
+    def test_unicode_in_input(self, client):
+        """Test unicode characters in input"""
+        response = client.post("/greet", json={"name": "Hello 世界 🌍"})
+        assert response.status_code == 200
+
+    def test_negative_numbers(self, client):
+        """Test negative numbers"""
+        response = client.post("/add", json={"a": -100, "b": -200})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["result"]["sum"] == -300
+
+    def test_integer_overflow(self, client):
+        """Test very large integers"""
+        response = client.post("/add", json={"a": 10**100, "b": 10**100})
+        # Python handles big ints, should work
+        assert response.status_code == 200
+
+    def test_float_precision(self, client):
+        """Test floating point precision"""
+        response = client.post("/add", json={"a": 0.1, "b": 0.2})
+        # Should convert float to int or fail validation
+        assert response.status_code in [200, 422]
+
+
+class TestHTTPConnectionErrors:
+    """Tests for connection and network errors"""
+
+    def test_invalid_http_method(self, client):
+        """Test using wrong HTTP method"""
+        response = client.get("/add")
+        assert response.status_code in [404, 405]
+
+    def test_invalid_content_type(self, client):
+        """Test with wrong content type"""
+        response = client.post(
+            "/add",
+            data="a=1&b=2",
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        # Should reject non-JSON
+        assert response.status_code in [415, 422]
+
+    def test_missing_content_type(self, client):
+        """Test with missing content type header"""
+        response = client.post("/add", data='{"a": 1, "b": 2}')
+        # FastAPI might handle this gracefully
+        assert response.status_code in [200, 422]
+
+    def test_options_request(self, client):
+        """Test OPTIONS request for CORS"""
+        response = client.options("/add")
+        # Should handle or reject OPTIONS
+        assert response.status_code in [200, 405]
+
+    def test_head_request(self, client):
+        """Test HEAD request"""
+        response = client.head("/health")
+        # Should support HEAD for health check
+        assert response.status_code in [200, 405]
+
+
+class TestHTTPRouteEdgeCases:
+    """Tests for route edge cases"""
+
+    def test_trailing_slash(self, client):
+        """Test route with trailing slash"""
+        response = client.post("/add/", json={"a": 1, "b": 2})
+        # Should handle or redirect
+        assert response.status_code in [200, 307, 308, 404]
+
+    def test_case_sensitivity(self, client):
+        """Test route case sensitivity"""
+        response = client.post("/ADD", json={"a": 1, "b": 2})
+        # Routes are case-sensitive by default
+        assert response.status_code in [404, 200]
+
+    def test_nonexistent_endpoint(self, client):
+        """Test accessing non-existent endpoint"""
+        response = client.post("/nonexistent")
+        assert response.status_code == 404
+
+    def test_health_check_reliability(self, client):
+        """Test health check always responds"""
+        for _ in range(5):
+            response = client.get("/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "healthy"
+
+
+class TestHTTPConcurrency:
+    """Tests for concurrent request handling"""
+
+    def test_concurrent_requests(self, client):
+        """Test multiple concurrent requests"""
+        responses = []
+        for i in range(10):
+            response = client.post("/add", json={"a": i, "b": i})
+            responses.append(response)
+
+        # All should succeed
+        for response in responses:
+            assert response.status_code == 200

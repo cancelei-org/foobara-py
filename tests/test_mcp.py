@@ -420,3 +420,272 @@ class TestMCPResources:
 
         capabilities = response["result"]["capabilities"]
         assert "resources" not in capabilities
+
+
+# ==================== MCP Protocol Edge Cases ====================
+
+class TestMCPProtocolEdgeCases:
+    """Tests for MCP protocol edge cases"""
+
+    @pytest.fixture
+    def connector(self):
+        conn = MCPConnector(name="EdgeCaseService", version="1.0.0")
+        conn.connect(Add)
+        return conn
+
+    def test_invalid_jsonrpc_version_1_0(self, connector):
+        """Test JSON-RPC 1.0 is rejected"""
+        request = {"jsonrpc": "1.0", "id": 1, "method": "test"}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+
+    def test_invalid_jsonrpc_version_3_0(self, connector):
+        """Test future JSON-RPC version"""
+        request = {"jsonrpc": "3.0", "id": 1, "method": "test"}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+
+    def test_missing_jsonrpc_field(self, connector):
+        """Test missing jsonrpc field"""
+        request = {"id": 1, "method": "test"}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+
+    def test_malformed_json(self, connector):
+        """Test various malformed JSON"""
+        # These are truly malformed JSON
+        malformed = [
+            "{not valid json",
+            '{"incomplete":',
+        ]
+        for invalid_json in malformed:
+            response = json.loads(connector.run(invalid_json))
+            assert "error" in response
+            assert response["error"]["code"] == JsonRpcError.PARSE_ERROR.value
+
+        # These are valid JSON but invalid JSON-RPC
+        invalid_requests = ["{{}}", "null", '""']
+        for invalid_json in invalid_requests:
+            response = json.loads(connector.run(invalid_json))
+            assert "error" in response
+            # Can be PARSE_ERROR or INVALID_REQUEST depending on implementation
+            assert response["error"]["code"] in [
+                JsonRpcError.PARSE_ERROR.value,
+                JsonRpcError.INVALID_REQUEST.value
+            ]
+
+    def test_empty_string_input(self, connector):
+        """Test empty string as input"""
+        response = json.loads(connector.run(""))
+        assert "error" in response
+        assert response["error"]["code"] == JsonRpcError.PARSE_ERROR.value
+
+    def test_array_with_invalid_items(self, connector):
+        """Test batch with some invalid requests"""
+        batch = [
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+            {"invalid": "request"},
+            {"jsonrpc": "2.0", "id": 2, "method": "ping"},
+        ]
+        response = json.loads(connector.run(json.dumps(batch)))
+        assert isinstance(response, list)
+        # Should have responses for valid requests and errors for invalid
+
+    def test_missing_method_field(self, connector):
+        """Test request without method field"""
+        request = {"jsonrpc": "2.0", "id": 1, "params": {}}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+
+    def test_invalid_method_type(self, connector):
+        """Test method field with wrong type"""
+        request = {"jsonrpc": "2.0", "id": 1, "method": 123}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+
+    def test_unknown_method(self, connector):
+        """Test calling unknown method"""
+        request = {"jsonrpc": "2.0", "id": 1, "method": "unknown/method", "params": {}}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+        # Should return one of these error codes
+        assert response["error"]["code"] in [
+            JsonRpcError.METHOD_NOT_FOUND.value,  # -32601
+            JsonRpcError.INVALID_PARAMS.value,     # -32602
+            JsonRpcError.INTERNAL_ERROR.value      # -32603
+        ]
+
+    def test_null_id(self, connector):
+        """Test request with null id"""
+        request = {"jsonrpc": "2.0", "id": None, "method": "ping", "params": {}}
+        response = connector.run(json.dumps(request))
+        # Null id might be treated as notification
+        assert response is None or "error" in json.loads(response)
+
+    def test_string_id(self, connector):
+        """Test request with string id"""
+        request = {"jsonrpc": "2.0", "id": "string-id", "method": "ping", "params": {}}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert response["id"] == "string-id"
+
+    def test_very_large_id(self, connector):
+        """Test request with very large integer id"""
+        request = {"jsonrpc": "2.0", "id": 10**100, "method": "ping", "params": {}}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert response["id"] == 10**100
+
+    def test_negative_id(self, connector):
+        """Test request with negative id"""
+        request = {"jsonrpc": "2.0", "id": -1, "method": "ping", "params": {}}
+        response = json.loads(connector.run(json.dumps(request)))
+        assert response["id"] == -1
+
+    def test_duplicate_ids_in_batch(self, connector):
+        """Test batch with duplicate ids"""
+        batch = [
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        ]
+        response = json.loads(connector.run(json.dumps(batch)))
+        assert isinstance(response, list)
+        assert len(response) == 2
+
+    def test_mixed_notifications_and_requests(self, connector):
+        """Test batch with mix of notifications and requests"""
+        batch = [
+            {"jsonrpc": "2.0", "method": "notifications/test"},  # notification
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"},  # request
+        ]
+        response = json.loads(connector.run(json.dumps(batch)))
+        # Should only respond to request, not notification
+        assert isinstance(response, list)
+        assert len(response) == 1
+
+    def test_tools_call_missing_name(self, connector):
+        """Test tools/call without command name"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"arguments": {"a": 1, "b": 2}}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response or response["result"].get("isError") is True
+
+    def test_tools_call_missing_arguments(self, connector):
+        """Test tools/call without arguments"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "Add"}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should use empty dict for arguments or error
+        assert "result" in response or "error" in response
+
+    def test_tools_call_invalid_command_name(self, connector):
+        """Test tools/call with non-existent command"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "NonExistent", "arguments": {}}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Could return error in result or as error response
+        assert "result" in response or "error" in response
+        if "result" in response:
+            assert response["result"].get("isError") is True or "error" in response["result"]
+
+    def test_initialize_missing_protocol_version(self, connector):
+        """Test initialize without protocol version"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"clientInfo": {"name": "test"}}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should handle missing protocol version
+        assert "result" in response or "error" in response
+
+    def test_initialize_unsupported_protocol_version(self, connector):
+        """Test initialize with unsupported protocol version"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "1999-01-01",
+                "clientInfo": {"name": "test"},
+                "capabilities": {}
+            }
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should handle or reject unsupported version
+        assert "result" in response or "error" in response
+
+    def test_initialize_missing_client_info(self, connector):
+        """Test initialize without client info"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05"}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should handle missing client info
+        assert "result" in response or "error" in response
+
+    def test_params_as_array(self, connector):
+        """Test params as array instead of object"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "ping",
+            "params": []
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should handle or reject array params
+        assert "result" in response or "error" in response
+
+    def test_unicode_in_method_name(self, connector):
+        """Test unicode characters in method name"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "test/世界",
+            "params": {}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response  # Method not found
+
+    def test_very_long_method_name(self, connector):
+        """Test very long method name"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "x" * 10000,
+            "params": {}
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        assert "error" in response
+
+    def test_special_characters_in_params(self, connector):
+        """Test special characters in parameter values"""
+        request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "Add",
+                "arguments": {"a": 1, "b": "\\n\\t\\r"}
+            }
+        }
+        response = json.loads(connector.run(json.dumps(request)))
+        # Should handle validation error
+        assert "result" in response

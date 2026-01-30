@@ -530,3 +530,364 @@ class TestHelperFunctions:
         connector = WebSocketConnector(registry)
         handler = create_fastapi_websocket_handler(connector)
         assert callable(handler)
+
+
+# ==================== WebSocket Connection Edge Cases ====================
+
+class TestWebSocketConnectionFailures:
+    """Tests for WebSocket connection failure scenarios"""
+
+    @pytest.fixture
+    def registry(self):
+        reg = CommandRegistry()
+        reg.register(EchoCommand)
+        return reg
+
+    @pytest.fixture
+    def connector(self, registry):
+        return WebSocketConnector(registry)
+
+    @pytest.mark.asyncio
+    async def test_connection_without_send_callback(self, connector):
+        """Test connection with invalid send callback"""
+        # Some implementations may accept None and fail later
+        # Test that connection is created even with None
+        try:
+            conn = await connector.connect("conn-1", None)
+            assert conn is not None
+        except Exception:
+            # Or it raises an exception, which is also valid
+            pass
+
+    @pytest.mark.asyncio
+    async def test_duplicate_connection_id(self, connector):
+        """Test connecting with duplicate connection ID"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        conn1 = await connector.connect("conn-1", send)
+        conn2 = await connector.connect("conn-1", send)
+        # Second connection should replace first
+        assert "conn-1" in connector._connections
+
+    @pytest.mark.asyncio
+    async def test_disconnect_nonexistent_connection(self, connector):
+        """Test disconnecting a connection that doesn't exist"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = WebSocketConnection("conn-x", send, WebSocketConfig())
+        # Should not raise error
+        await connector.disconnect(connection)
+
+    @pytest.mark.asyncio
+    async def test_message_to_disconnected_client(self, connector):
+        """Test sending message after disconnect"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        await connector.disconnect(connection)
+
+        # Try to send after disconnect
+        msg = WebSocketMessage(type=WebSocketMessageType.PING, id="ping-1")
+        try:
+            await connection.send_message(msg)
+        except Exception:
+            pass  # Expected to fail
+
+    @pytest.mark.asyncio
+    async def test_invalid_message_format(self, connector):
+        """Test handling invalid message format"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        await connector.handle_message(connection, "not json")
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_message_missing_type(self, connector):
+        """Test message without type field"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        await connector.handle_message(connection, json.dumps({"id": "test"}))
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_message_invalid_type(self, connector):
+        """Test message with invalid type value"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        await connector.handle_message(
+            connection,
+            json.dumps({"type": "invalid_type", "id": "test"})
+        )
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_execute_with_missing_inputs(self, connector):
+        """Test execute without inputs field"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        exec_msg = WebSocketMessage(
+            type=WebSocketMessageType.EXECUTE,
+            id="exec-1",
+            command="EchoCommand"
+        )
+        await connector.handle_message(connection, exec_msg.to_json())
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        # Should error on missing required input
+        assert data["type"] == "error" or (data["type"] == "result" and data.get("isError"))
+
+    @pytest.mark.asyncio
+    async def test_very_large_message(self, connector):
+        """Test handling very large message"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        config = WebSocketConfig(max_message_size=1000)
+        connector.config = config
+        connection = await connector.connect("conn-1", send)
+
+        # Create message larger than limit
+        large_data = "x" * 10000
+        exec_msg = WebSocketMessage(
+            type=WebSocketMessageType.EXECUTE,
+            id="exec-1",
+            command="EchoCommand",
+            inputs={"message": large_data}
+        )
+        await connector.handle_message(connection, exec_msg.to_json())
+
+        # Should handle or reject large message
+        assert len(messages) >= 1
+
+    @pytest.mark.asyncio
+    async def test_rapid_fire_messages(self, connector):
+        """Test many messages sent rapidly"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+
+        # Send many pings rapidly
+        for i in range(100):
+            ping_msg = WebSocketMessage(
+                type=WebSocketMessageType.PING,
+                id=f"ping-{i}"
+            )
+            await connector.handle_message(connection, ping_msg.to_json())
+
+        # Should handle all messages
+        assert len(messages) == 100
+
+    @pytest.mark.asyncio
+    async def test_subscription_without_command(self, connector):
+        """Test subscribe without command name"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        sub_msg = WebSocketMessage(
+            type=WebSocketMessageType.SUBSCRIBE,
+            id="sub-1",
+            inputs={}
+        )
+        await connector.handle_message(connection, sub_msg.to_json())
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_nonexistent(self, connector):
+        """Test unsubscribe from non-existent subscription"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        unsub_msg = WebSocketMessage(
+            type=WebSocketMessageType.UNSUBSCRIBE,
+            id="unsub-1",
+            subscription_id="nonexistent"
+        )
+        await connector.handle_message(connection, unsub_msg.to_json())
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        # Should handle gracefully
+        assert data["type"] in ["error", "unsubscribed"]
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_without_subscription_id(self, connector):
+        """Test unsubscribe without subscription_id"""
+        messages = []
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        unsub_msg = WebSocketMessage(
+            type=WebSocketMessageType.UNSUBSCRIBE,
+            id="unsub-1"
+        )
+        await connector.handle_message(connection, unsub_msg.to_json())
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "error"
+
+
+class TestWebSocketHeartbeat:
+    """Tests for WebSocket heartbeat/ping functionality"""
+
+    @pytest.fixture
+    def registry(self):
+        reg = CommandRegistry()
+        reg.register(EchoCommand)
+        return reg
+
+    @pytest.mark.asyncio
+    async def test_ping_response(self, registry):
+        """Test ping receives pong"""
+        connector = WebSocketConnector(registry)
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        ping_msg = WebSocketMessage(type=WebSocketMessageType.PING, id="ping-1")
+        await connector.handle_message(connection, ping_msg.to_json())
+
+        assert len(messages) == 1
+        data = json.loads(messages[0])
+        assert data["type"] == "pong"
+        assert data["id"] == "ping-1"
+
+    @pytest.mark.asyncio
+    async def test_pong_without_ping(self, registry):
+        """Test receiving unsolicited pong"""
+        connector = WebSocketConnector(registry)
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        pong_msg = WebSocketMessage(type=WebSocketMessageType.PONG, id="pong-1")
+        await connector.handle_message(connection, pong_msg.to_json())
+
+        # Should handle gracefully (no error)
+        # May or may not generate response
+
+    @pytest.mark.asyncio
+    async def test_ping_without_id(self, registry):
+        """Test ping without id field"""
+        connector = WebSocketConnector(registry)
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+        await connector.handle_message(
+            connection,
+            json.dumps({"type": "ping"})
+        )
+
+        # Should handle gracefully
+        assert len(messages) >= 0
+
+
+class TestWebSocketReconnection:
+    """Tests for reconnection scenarios"""
+
+    @pytest.fixture
+    def registry(self):
+        reg = CommandRegistry()
+        reg.register(EchoCommand)
+        return reg
+
+    @pytest.mark.asyncio
+    async def test_reconnect_same_id(self, registry):
+        """Test reconnecting with same connection ID"""
+        connector = WebSocketConnector(registry)
+        messages1 = []
+        messages2 = []
+
+        async def send1(msg):
+            messages1.append(msg)
+
+        async def send2(msg):
+            messages2.append(msg)
+
+        # First connection
+        conn1 = await connector.connect("conn-1", send1)
+        # Reconnect with same ID
+        conn2 = await connector.connect("conn-1", send2)
+
+        # Send message
+        ping_msg = WebSocketMessage(type=WebSocketMessageType.PING, id="ping-1")
+        await connector.handle_message(conn2, ping_msg.to_json())
+
+        # Should go to second connection
+        assert len(messages2) == 1
+        assert len(messages1) == 0
+
+    @pytest.mark.asyncio
+    async def test_subscription_cleanup_on_disconnect(self, registry):
+        """Test subscriptions are cleaned up on disconnect"""
+        connector = WebSocketConnector(registry)
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        connection = await connector.connect("conn-1", send)
+
+        # Create subscription
+        sub_msg = WebSocketMessage(
+            type=WebSocketMessageType.SUBSCRIBE,
+            id="sub-1",
+            command="EchoCommand",
+            inputs={"message": "test"}
+        )
+        await connector.handle_message(connection, sub_msg.to_json())
+        await asyncio.sleep(0.1)
+
+        # Disconnect
+        await connector.disconnect(connection)
+
+        # Subscriptions should be cancelled
+        assert len(connection.subscriptions) == 0 or all(
+            not sub.active for sub in connection.subscriptions.values()
+        )

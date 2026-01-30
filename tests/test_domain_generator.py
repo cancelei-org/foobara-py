@@ -288,3 +288,281 @@ class TestDomainStructure:
             assert "from ..commands" not in content
             assert "from ..types" not in content
             assert "from ..entities" not in content
+
+
+class TestDomainGeneratorEdgeCases:
+    """Test edge cases and error handling for DomainGenerator"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        import tempfile
+
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.output_dir = self.temp_dir / "domains"
+        self.output_dir.mkdir(parents=True)
+
+    def teardown_method(self):
+        """Cleanup"""
+        import shutil
+
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_empty_domain_name(self):
+        """Should handle empty domain name"""
+        generator = DomainGenerator(name="")
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_domain_name_with_special_characters(self):
+        """Should sanitize domain names with special characters"""
+        generator = DomainGenerator(name="User@Management#2024!")
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_reserved_keyword_domain_name(self):
+        """Should handle Python reserved keywords"""
+        keywords = ["class", "def", "import", "if", "for", "while"]
+        for keyword in keywords:
+            generator = DomainGenerator(
+                name=keyword,
+                generate_commands_dir=False,
+                generate_types_dir=False,
+                generate_entities_dir=False
+            )
+            files = generator.generate(self.output_dir)
+            assert len(files) > 0
+            # Cleanup
+            import shutil
+            shutil.rmtree(self.output_dir / keyword)
+
+    def test_builtin_name_domain(self):
+        """Should handle builtin name collisions"""
+        generator = DomainGenerator(name="list")
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_very_long_domain_name(self):
+        """Should handle very long domain names"""
+        long_name = "UserManagement" * 10  # Reduced to avoid OS filename limit
+        generator = DomainGenerator(name=long_name)
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_unicode_domain_name(self):
+        """Should handle unicode in domain names"""
+        generator = DomainGenerator(name="Users_日本語")
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_domain_with_numbers(self):
+        """Should handle domain names with numbers"""
+        generator = DomainGenerator(name="API2_Users3")
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_very_long_description(self):
+        """Should handle very long descriptions"""
+        long_desc = "A" * 1000
+        generator = DomainGenerator(
+            name="LongDesc",
+            description=long_desc
+        )
+        files = generator.generate(self.output_dir)
+        domain_init = self.output_dir / "long_desc" / "__init__.py"
+        content = domain_init.read_text()
+        assert long_desc in content
+
+    def test_description_with_special_characters(self):
+        """Should handle special characters in description"""
+        special_desc = 'Desc with "quotes" and \'single\' and <tags> and & symbols'
+        generator = DomainGenerator(
+            name="SpecialDesc",
+            description=special_desc
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_multiline_description(self):
+        """Should handle multiline descriptions"""
+        multiline_desc = "Line 1\nLine 2\nLine 3\nLine 4"
+        generator = DomainGenerator(
+            name="MultiDesc",
+            description=multiline_desc
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_empty_organization(self):
+        """Should handle empty organization name"""
+        generator = DomainGenerator(
+            name="Users",
+            organization=""
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_organization_with_special_characters(self):
+        """Should handle special characters in organization"""
+        generator = DomainGenerator(
+            name="Users",
+            organization="My@Org#2024!"
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_very_long_organization(self):
+        """Should handle very long organization names"""
+        long_org = "A" * 200
+        generator = DomainGenerator(
+            name="Users",
+            organization=long_org
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_empty_dependencies_list(self):
+        """Should handle empty dependencies list"""
+        generator = DomainGenerator(
+            name="NoDeps",
+            dependencies=[]
+        )
+        files = generator.generate(self.output_dir)
+        domain_init = self.output_dir / "no_deps" / "__init__.py"
+        content = domain_init.read_text()
+        # Should not have dependencies in output if list is empty
+        assert len(files) > 0
+
+    def test_single_dependency(self):
+        """Should handle single dependency"""
+        generator = DomainGenerator(
+            name="Orders",
+            dependencies=["Users"]
+        )
+        files = generator.generate(self.output_dir)
+        domain_init = self.output_dir / "orders" / "__init__.py"
+        content = domain_init.read_text()
+        assert "Users" in content
+
+    def test_many_dependencies(self):
+        """Should handle many dependencies"""
+        deps = [f"Domain{i}" for i in range(20)]
+        generator = DomainGenerator(
+            name="Complex",
+            dependencies=deps
+        )
+        files = generator.generate(self.output_dir)
+        domain_init = self.output_dir / "complex" / "__init__.py"
+        content = domain_init.read_text()
+        assert "Domain0" in content
+        assert "Domain19" in content
+
+    def test_duplicate_dependencies(self):
+        """Should handle duplicate dependencies"""
+        generator = DomainGenerator(
+            name="DupDeps",
+            dependencies=["Users", "Users", "Products", "Users"]
+        )
+        files = generator.generate(self.output_dir)
+        # Should handle duplicates gracefully
+        assert len(files) > 0
+
+    def test_circular_dependency_reference(self):
+        """Should handle self-referencing dependencies"""
+        generator = DomainGenerator(
+            name="SelfRef",
+            dependencies=["SelfRef"]
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate without error
+        assert len(files) > 0
+
+    def test_dependency_with_special_characters(self):
+        """Should handle dependencies with special characters"""
+        generator = DomainGenerator(
+            name="Orders",
+            dependencies=["User@Management", "Product#Catalog"]
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_generate_to_existing_domain(self):
+        """Should handle or raise error when generating to existing domain directory"""
+        from foobara_py.generators.files_generator import FileExistsError
+
+        # Generate once
+        generator1 = DomainGenerator(name="Existing")
+        files1 = generator1.generate(self.output_dir)
+
+        # Add existing file
+        existing_file = self.output_dir / "existing" / "custom_file.py"
+        existing_file.write_text("# Custom file")
+
+        # Try to generate again
+        generator2 = DomainGenerator(name="Existing")
+
+        try:
+            files2 = generator2.generate(self.output_dir)
+            # If no error, custom file should still exist
+            assert existing_file.exists()
+        except FileExistsError:
+            # Expected behavior - trying to overwrite existing files
+            pass
+
+    def test_all_subdirs_disabled(self):
+        """Should generate minimal domain with all subdirs disabled"""
+        generator = DomainGenerator(
+            name="Minimal",
+            generate_commands_dir=False,
+            generate_types_dir=False,
+            generate_entities_dir=False
+        )
+        files = generator.generate(self.output_dir)
+
+        domain_dir = self.output_dir / "minimal"
+        assert (domain_dir / "__init__.py").exists()
+        assert not (domain_dir / "commands").exists()
+        assert not (domain_dir / "types").exists()
+        assert not (domain_dir / "entities").exists()
+
+    def test_only_commands_dir(self):
+        """Should generate domain with only commands directory"""
+        generator = DomainGenerator(
+            name="CommandsOnly",
+            generate_types_dir=False,
+            generate_entities_dir=False
+        )
+        files = generator.generate(self.output_dir)
+
+        domain_dir = self.output_dir / "commands_only"
+        assert (domain_dir / "commands" / "__init__.py").exists()
+        assert not (domain_dir / "types").exists()
+        assert not (domain_dir / "entities").exists()
+
+    def test_only_types_dir(self):
+        """Should generate domain with only types directory"""
+        generator = DomainGenerator(
+            name="TypesOnly",
+            generate_commands_dir=False,
+            generate_entities_dir=False
+        )
+        files = generator.generate(self.output_dir)
+
+        domain_dir = self.output_dir / "types_only"
+        assert not (domain_dir / "commands").exists()
+        assert (domain_dir / "types" / "__init__.py").exists()
+        assert not (domain_dir / "entities").exists()
+
+    def test_only_entities_dir(self):
+        """Should generate domain with only entities directory"""
+        generator = DomainGenerator(
+            name="EntitiesOnly",
+            generate_commands_dir=False,
+            generate_types_dir=False
+        )
+        files = generator.generate(self.output_dir)
+
+        domain_dir = self.output_dir / "entities_only"
+        assert not (domain_dir / "commands").exists()
+        assert not (domain_dir / "types").exists()
+        assert (domain_dir / "entities" / "__init__.py").exists()

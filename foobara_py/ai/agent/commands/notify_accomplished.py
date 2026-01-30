@@ -7,7 +7,7 @@ accomplished the current goal and provide a result.
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.core.command import Command
 
@@ -15,14 +15,13 @@ from foobara_py.core.command import Command
 class NotifyAccomplishedInputs(BaseModel):
     """Inputs for NotifyUserThatCurrentGoalHasBeenAccomplished command."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     agent: Any = Field(..., description="The agent instance")
     result: Optional[Any] = Field(None, description="The result data to return to the user")
     message_to_user: Optional[str] = Field(
         None, description="Message to the user about what was done"
     )
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class NotifyUserThatCurrentGoalHasBeenAccomplished(Command[NotifyAccomplishedInputs, None]):

@@ -8,7 +8,7 @@ run next and with what inputs.
 import json
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.ai.llm_backed_command import (
     LlmBackedCommand,
@@ -19,10 +19,9 @@ from foobara_py.ai.llm_backed_command import (
 class DetermineNextCommandInputs(BaseModel):
     """Inputs for DetermineNextCommandNameAndInputs."""
 
-    agent: Any = Field(..., description="The agent instance")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
+    agent: Any = Field(..., description="The agent instance")
 
 
 class DetermineNextCommandResult(BaseModel):

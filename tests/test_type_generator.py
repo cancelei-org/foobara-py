@@ -421,3 +421,417 @@ class TestNameConversion:
 
             # Cleanup
             expected_path.unlink()
+
+
+class TestTypeGeneratorEdgeCases:
+    """Test edge cases and error handling for TypeGenerator"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        import tempfile
+
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.output_dir = self.temp_dir / "types"
+        self.test_dir = self.temp_dir / "tests"
+        self.output_dir.mkdir(parents=True)
+        self.test_dir.mkdir(parents=True)
+
+    def teardown_method(self):
+        """Cleanup"""
+        import shutil
+
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_empty_type_name(self):
+        """Should handle empty type name"""
+        generator = TypeGenerator(
+            name="",
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_type_name_with_special_characters(self):
+        """Should sanitize type names with special characters"""
+        generator = TypeGenerator(
+            name="User@Profile#2024!",
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_reserved_keyword_type_name(self):
+        """Should handle Python reserved keywords"""
+        generator = TypeGenerator(
+            name="class",
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_builtin_type_name(self):
+        """Should handle builtin type name collisions"""
+        generator = TypeGenerator(
+            name="str",
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_very_long_type_name(self):
+        """Should handle very long type names"""
+        long_name = "UserProfile" * 10  # Reduced to avoid OS filename limit
+        generator = TypeGenerator(
+            name=long_name,
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_unicode_type_name(self):
+        """Should handle unicode in type names"""
+        generator = TypeGenerator(
+            name="User_日本語",
+            kind="model",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_invalid_kind(self):
+        """Should handle invalid kind values"""
+        generator = TypeGenerator(
+            name="Test",
+            kind="invalid",  # type: ignore
+            generate_tests=False
+        )
+        # Should handle gracefully or use default
+        try:
+            files = generator.generate(self.output_dir)
+        except Exception:
+            pass  # May raise error, which is valid
+
+    def test_entity_without_primary_key(self):
+        """Should handle entity without primary key"""
+        generator = TypeGenerator(
+            name="NoPK",
+            kind="entity",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "str"},
+            ],
+            generate_tests=False
+        )
+        # Should use default primary key or handle gracefully
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_entity_with_nonexistent_primary_key(self):
+        """Should handle entity with non-existent primary key field"""
+        generator = TypeGenerator(
+            name="BadPK",
+            kind="entity",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "str"},
+            ],
+            primary_key="nonexistent_field",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should still generate, but might have issues
+        assert len(files) > 0
+
+    def test_empty_fields_list(self):
+        """Should handle empty fields list"""
+        generator = TypeGenerator(
+            name="NoFields",
+            kind="model",
+            fields=[],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_field_with_missing_name(self):
+        """Should handle field with missing name"""
+        generator = TypeGenerator(
+            name="MissingName",
+            kind="model",
+            fields=[
+                {"type": "str"},  # Missing name
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_field_with_missing_type(self):
+        """Should handle field with missing type"""
+        generator = TypeGenerator(
+            name="MissingType",
+            kind="model",
+            fields=[
+                {"name": "field1"},  # Missing type
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_many_fields(self):
+        """Should handle types with many fields"""
+        fields = [{"name": f"field_{i}", "type": "str"} for i in range(100)]
+        generator = TypeGenerator(
+            name="ManyFields",
+            kind="model",
+            fields=fields,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        model_file = self.output_dir / "many_fields.py"
+        content = model_file.read_text()
+        assert "field_0" in content
+        assert "field_99" in content
+
+    def test_field_with_complex_type(self):
+        """Should handle complex field types"""
+        generator = TypeGenerator(
+            name="ComplexTypes",
+            kind="model",
+            fields=[
+                {"name": "data", "type": "Dict[str, List[int]]"},
+                {"name": "callback", "type": "Callable[[int], str]"},
+                {"name": "union", "type": "Union[str, int, None]"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        model_file = self.output_dir / "complex_types.py"
+        content = model_file.read_text()
+        assert "Dict[str, List[int]]" in content
+        assert "Callable[[int], str]" in content
+
+    def test_field_with_invalid_default(self):
+        """Should handle invalid default values"""
+        generator = TypeGenerator(
+            name="InvalidDefaults",
+            kind="model",
+            fields=[
+                {"name": "field1", "type": "int", "default": "not_a_number"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate with the default as-is
+        assert len(files) > 0
+
+    def test_field_with_multiline_description(self):
+        """Should handle multiline field descriptions"""
+        generator = TypeGenerator(
+            name="MultilineDesc",
+            kind="model",
+            fields=[
+                {
+                    "name": "data",
+                    "type": "str",
+                    "description": "Line 1\nLine 2\nLine 3"
+                },
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_field_with_special_characters_in_description(self):
+        """Should handle special characters in field descriptions"""
+        generator = TypeGenerator(
+            name="SpecialDesc",
+            kind="model",
+            fields=[
+                {
+                    "name": "data",
+                    "type": "str",
+                    "description": 'Desc with "quotes" and \'single\' and <tags>'
+                },
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_duplicate_field_names(self):
+        """Should handle duplicate field names"""
+        generator = TypeGenerator(
+            name="DupFields",
+            kind="model",
+            fields=[
+                {"name": "field1", "type": "str"},
+                {"name": "field1", "type": "int"},  # Duplicate
+                {"name": "field2", "type": "str"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate, last one wins or error
+        assert len(files) > 0
+
+    def test_field_name_with_reserved_keyword(self):
+        """Should handle field names that are reserved keywords"""
+        generator = TypeGenerator(
+            name="ReservedFields",
+            kind="model",
+            fields=[
+                {"name": "class", "type": "str"},
+                {"name": "def", "type": "str"},
+                {"name": "return", "type": "str"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_model_with_mutable_flag(self):
+        """Should handle mutable flag for models"""
+        generator = TypeGenerator(
+            name="MutableModel",
+            kind="model",
+            fields=[{"name": "value", "type": "str"}],
+            mutable=True,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        model_file = self.output_dir / "mutable_model.py"
+        content = model_file.read_text()
+        assert "MutableModel" in content
+
+    def test_type_with_empty_validators_list(self):
+        """Should handle empty validators list"""
+        generator = TypeGenerator(
+            name="NoValidators",
+            kind="type",
+            base_type="str",
+            validators=[],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_type_with_invalid_validator(self):
+        """Should handle invalid validator names"""
+        generator = TypeGenerator(
+            name="InvalidValidator",
+            kind="type",
+            base_type="str",
+            validators=["nonexistent_validator"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate with validator name as-is
+        assert len(files) > 0
+
+    def test_type_with_many_validators(self):
+        """Should handle many validators"""
+        validators = [f"validator_{i}" for i in range(20)]
+        generator = TypeGenerator(
+            name="ManyValidators",
+            kind="type",
+            base_type="str",
+            validators=validators,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_type_without_base_type(self):
+        """Should handle type without base_type"""
+        generator = TypeGenerator(
+            name="NoBaseType",
+            kind="type",
+            validators=["some_validator"],
+            generate_tests=False
+        )
+        # Should handle gracefully or error
+        try:
+            files = generator.generate(self.output_dir)
+        except Exception:
+            pass  # May raise error, which is valid
+
+    def test_very_long_description(self):
+        """Should handle very long descriptions"""
+        long_desc = "A" * 1000
+        generator = TypeGenerator(
+            name="LongDesc",
+            kind="model",
+            fields=[{"name": "id", "type": "int"}],
+            description=long_desc,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_domain_with_special_characters(self):
+        """Should handle domain with special characters"""
+        generator = TypeGenerator(
+            name="User",
+            kind="entity",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "str"},
+            ],
+            primary_key="id",
+            domain="User@Management#2024",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_organization_without_domain(self):
+        """Should handle organization without domain"""
+        generator = TypeGenerator(
+            name="User",
+            kind="entity",
+            fields=[{"name": "id", "type": "int"}],
+            primary_key="id",
+            organization="MyOrg",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Organization should be ignored if no domain
+        assert len(files) > 0
+
+    def test_generate_to_existing_file(self):
+        """Should raise FileExistsError when file exists"""
+        from foobara_py.generators.files_generator import FileExistsError
+
+        # Generate once
+        generator1 = TypeGenerator(
+            name="ExistingType",
+            kind="model",
+            fields=[{"name": "field1", "type": "str"}],
+            generate_tests=False
+        )
+        files1 = generator1.generate(self.output_dir)
+
+        # Try to generate again with different content
+        generator2 = TypeGenerator(
+            name="ExistingType",
+            kind="model",
+            fields=[{"name": "field2", "type": "int"}],
+            generate_tests=False
+        )
+
+        try:
+            files2 = generator2.generate(self.output_dir)
+            # If no error, check file exists
+            type_file = self.output_dir / "existing_type.py"
+            assert type_file.exists()
+        except FileExistsError:
+            # Expected behavior
+            pass

@@ -1,0 +1,53 @@
+{
+  "python_framework": "foobara-py",
+  "ruby_framework": "foobara-ruby",
+  "python_timestamp": 1769788783.5703692,
+  "ruby_timestamp": 1738247400,
+  "comparisons": [
+    {
+      "name": "complex",
+      "python_ops_per_sec": 44216.61255098628,
+      "ruby_ops_per_sec": 31250,
+      "python_mean_us": 22.615934199999998,
+      "ruby_mean_us": 32.0,
+      "ratio": 0.7067479437499999,
+      "status": "faster"
+    },
+    {
+      "name": "composite",
+      "python_ops_per_sec": 15168.225802023959,
+      "ruby_ops_per_sec": 13333,
+      "python_mean_us": 65.9272886,
+      "ruby_mean_us": 75.0,
+      "ratio": 0.8790305146666667,
+      "status": "faster"
+    },
+    {
+      "name": "simple_command",
+      "python_ops_per_sec": 51658.87655974033,
+      "ruby_ops_per_sec": 45454,
+      "python_mean_us": 19.357757399999997,
+      "ruby_mean_us": 22.0,
+      "ratio": 0.8798980636363636,
+      "status": "faster"
+    },
+    {
+      "name": "validated",
+      "python_ops_per_sec": 51353.07442742812,
+      "ruby_ops_per_sec": 35714,
+      "python_mean_us": 19.4730308,
+      "ruby_mean_us": 28.0,
+      "ratio": 0.6954653857142857,
+      "status": "faster"
+    },
+    {
+      "name": "with_callbacks",
+      "python_ops_per_sec": 51124.12205248156,
+      "ruby_ops_per_sec": 40000,
+      "python_mean_us": 19.5602381,
+      "ruby_mean_us": 25.0,
+      "ratio": 0.782409524,
+      "status": "faster"
+    }
+  ]
+}

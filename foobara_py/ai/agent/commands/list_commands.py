@@ -7,7 +7,7 @@ to accomplish its goal.
 
 from typing import Any, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.core.command import Command
 
@@ -15,10 +15,9 @@ from foobara_py.core.command import Command
 class ListCommandsInputs(BaseModel):
     """Inputs for ListCommands command."""
 
-    agent: Any = Field(..., description="The agent instance")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
+    agent: Any = Field(..., description="The agent instance")
 
 
 class ListCommandsResult(BaseModel):

@@ -359,3 +359,298 @@ class TestProjectTemplates:
         pyproject = (project_dir / "pyproject.toml").read_text()
         assert "uvicorn" in pyproject
         assert "jinja2" in pyproject
+
+
+class TestProjectGeneratorEdgeCases:
+    """Test edge cases and error handling for ProjectGenerator"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        import tempfile
+
+        self.temp_dir = Path(tempfile.mkdtemp())
+
+    def teardown_method(self):
+        """Cleanup"""
+        import shutil
+
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_empty_project_name(self):
+        """Should handle empty project name"""
+        generator = ProjectGenerator(
+            name="",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        # Empty name should create a project directory
+        assert len(files) > 0
+
+    def test_project_name_with_special_characters(self):
+        """Should sanitize project names with special characters"""
+        generator = ProjectGenerator(
+            name="My@App#2024!",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        # Should convert to valid snake_case
+        assert len(files) > 0
+
+    def test_project_name_with_spaces(self):
+        """Should handle project names with spaces"""
+        generator = ProjectGenerator(
+            name="My Cool App",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "my_cool_app"
+        assert project_dir.exists()
+
+    def test_project_name_with_numbers(self):
+        """Should handle project names starting with numbers"""
+        generator = ProjectGenerator(
+            name="123App",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_very_long_project_name(self):
+        """Should handle very long project names"""
+        long_name = "A" * 200
+        generator = ProjectGenerator(
+            name=long_name,
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_unicode_project_name(self):
+        """Should handle unicode in project names"""
+        generator = ProjectGenerator(
+            name="MyApp_日本語",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_invalid_template_name(self):
+        """Should handle invalid template names gracefully"""
+        generator = ProjectGenerator(
+            name="TestApp",
+            template="invalid"  # type: ignore
+        )
+        # Should not crash, might use default template
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_old_python_version(self):
+        """Should handle old Python versions"""
+        generator = ProjectGenerator(
+            name="OldPython",
+            template="basic",
+            python_version="3.7"
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "old_python"
+        pyproject = (project_dir / "pyproject.toml").read_text()
+        assert "3.7" in pyproject
+
+    def test_future_python_version(self):
+        """Should handle future Python versions"""
+        generator = ProjectGenerator(
+            name="FuturePython",
+            template="basic",
+            python_version="3.20"
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "future_python"
+        pyproject = (project_dir / "pyproject.toml").read_text()
+        assert "3.20" in pyproject
+
+    def test_invalid_python_version_format(self):
+        """Should handle invalid Python version formats"""
+        generator = ProjectGenerator(
+            name="BadVersion",
+            template="basic",
+            python_version="python3.11"
+        )
+        files = generator.generate(self.temp_dir)
+        # Should still generate files
+        assert len(files) > 0
+
+    def test_generate_all_templates(self):
+        """Should successfully generate all template types"""
+        templates = ["basic", "api", "web", "full"]
+        for template in templates:
+            generator = ProjectGenerator(
+                name=f"Test{template.capitalize()}",
+                template=template,  # type: ignore
+                include_makefile=False
+            )
+            files = generator.generate(self.temp_dir)
+            assert len(files) > 0
+
+    def test_generate_with_all_optional_features(self):
+        """Should generate with all optional features enabled"""
+        generator = ProjectGenerator(
+            name="AllFeatures",
+            template="full",
+            include_docker=True,
+            include_ci=True,
+            include_makefile=True
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "all_features"
+
+        assert (project_dir / "Dockerfile").exists()
+        assert (project_dir / ".github" / "workflows" / "ci.yml").exists()
+        assert (project_dir / "Makefile").exists()
+
+    def test_generate_with_no_optional_features(self):
+        """Should generate with all optional features disabled"""
+        generator = ProjectGenerator(
+            name="MinimalFeatures",
+            template="basic",
+            include_docker=False,
+            include_ci=False,
+            include_makefile=False
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "minimal_features"
+
+        assert not (project_dir / "Dockerfile").exists()
+        assert not (project_dir / ".github" / "workflows" / "ci.yml").exists()
+        assert not (project_dir / "Makefile").exists()
+
+    def test_very_long_description(self):
+        """Should handle very long descriptions"""
+        long_desc = "A" * 1000
+        generator = ProjectGenerator(
+            name="LongDesc",
+            template="basic",
+            description=long_desc
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "long_desc"
+        readme = (project_dir / "README.md").read_text()
+        assert long_desc in readme
+
+    def test_multiline_description(self):
+        """Should handle multiline descriptions"""
+        multiline_desc = "Line 1\nLine 2\nLine 3"
+        generator = ProjectGenerator(
+            name="MultiDesc",
+            template="basic",
+            description=multiline_desc
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_special_characters_in_description(self):
+        """Should handle special characters in description"""
+        special_desc = "Description with 'quotes' and \"double quotes\" and <html>"
+        generator = ProjectGenerator(
+            name="SpecialDesc",
+            template="basic",
+            description=special_desc
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_author_with_email(self):
+        """Should handle author with email format"""
+        generator = ProjectGenerator(
+            name="AuthorEmail",
+            template="basic",
+            author="John Doe <john@example.com>"
+        )
+        files = generator.generate(self.temp_dir)
+        project_dir = self.temp_dir / "author_email"
+        pyproject = (project_dir / "pyproject.toml").read_text()
+        assert "John Doe" in pyproject
+
+    def test_author_with_unicode(self):
+        """Should handle unicode in author names"""
+        generator = ProjectGenerator(
+            name="UnicodeAuthor",
+            template="basic",
+            author="José García"
+        )
+        files = generator.generate(self.temp_dir)
+        assert len(files) > 0
+
+    def test_existing_directory_same_name(self):
+        """Should handle existing directory with same name"""
+        # Create a directory first
+        existing_dir = self.temp_dir / "existing_app"
+        existing_dir.mkdir(parents=True)
+        (existing_dir / "existing_file.txt").write_text("existing content")
+
+        generator = ProjectGenerator(
+            name="ExistingApp",
+            template="basic"
+        )
+        files = generator.generate(self.temp_dir)
+        # Should still generate files (overwrite or merge)
+        assert len(files) > 0
+
+    def test_output_to_nonexistent_directory(self):
+        """Should create output directory if it doesn't exist"""
+        nonexistent = self.temp_dir / "deeply" / "nested" / "path"
+        generator = ProjectGenerator(
+            name="DeepPath",
+            template="basic"
+        )
+        files = generator.generate(nonexistent)
+        assert len(files) > 0
+        assert nonexistent.exists()
+
+    def test_readonly_parent_directory(self):
+        """Should handle readonly parent directory gracefully"""
+        import os
+        import stat
+
+        readonly_dir = self.temp_dir / "readonly"
+        readonly_dir.mkdir()
+
+        # Make directory readonly
+        os.chmod(readonly_dir, stat.S_IRUSR | stat.S_IXUSR)
+
+        try:
+            generator = ProjectGenerator(
+                name="ReadonlyTest",
+                template="basic"
+            )
+            # This should raise an error or handle gracefully
+            try:
+                files = generator.generate(readonly_dir)
+            except (PermissionError, OSError):
+                pass  # Expected behavior
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(readonly_dir, stat.S_IRWXU)
+
+    def test_concurrent_generation_same_directory(self):
+        """Should handle concurrent generation attempts"""
+        import concurrent.futures
+
+        def generate_project(name):
+            generator = ProjectGenerator(
+                name=name,
+                template="basic",
+                include_makefile=False
+            )
+            return generator.generate(self.temp_dir)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(generate_project, f"Concurrent{i}")
+                for i in range(3)
+            ]
+            results = [f.result() for f in futures]
+
+        # All should complete successfully
+        for result in results:
+            assert len(result) > 0

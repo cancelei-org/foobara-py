@@ -1,0 +1,163 @@
+{
+  "framework": "foobara-py",
+  "language": "python",
+  "timestamp": 1769788919.8930929,
+  "results": {
+    "command_execution": {
+      "framework": "foobara-py",
+      "language": "python",
+      "timestamp": 1769788919.3964832,
+      "benchmarks": {
+        "simple_command": {
+          "iterations": 10000,
+          "min_ns": 11730,
+          "max_ns": 11840592,
+          "mean_ns": 18294.2056,
+          "median_ns": 12864.5,
+          "stdev_ns": 220414.91472427364,
+          "total_ms": 182.942056,
+          "ops_per_sec": 54662.11662123225
+        },
+        "simple": {
+          "iterations": 5000,
+          "min_ns": 11795,
+          "max_ns": 12563592,
+          "mean_ns": 20293.5404,
+          "median_ns": 12620.0,
+          "stdev_ns": 305054.3035021847,
+          "total_ms": 101.467702,
+          "ops_per_sec": 49276.76394997099
+        },
+        "validated": {
+          "iterations": 10000,
+          "min_ns": 11946,
+          "max_ns": 13068342,
+          "mean_ns": 19269.5098,
+          "median_ns": 12909.0,
+          "stdev_ns": 270403.5095962578,
+          "total_ms": 192.695098,
+          "ops_per_sec": 51895.456105479134
+        },
+        "overhead": 1.1236146059560903,
+        "no_callbacks": {
+          "iterations": 10000,
+          "min_ns": 11659,
+          "max_ns": 12858614,
+          "mean_ns": 19017.4575,
+          "median_ns": 12550.0,
+          "stdev_ns": 279260.8854900798,
+          "total_ms": 190.174575,
+          "ops_per_sec": 52583.26461357939
+        },
+        "with_callbacks": {
+          "iterations": 10000,
+          "min_ns": 11686,
+          "max_ns": 13380646,
+          "mean_ns": 19511.909,
+          "median_ns": 12778.0,
+          "stdev_ns": 284658.9935301772,
+          "total_ms": 195.11909,
+          "ops_per_sec": 51250.75152820772
+        },
+        "single": {
+          "iterations": 5000,
+          "min_ns": 11723,
+          "max_ns": 12690564,
+          "mean_ns": 17932.2354,
+          "median_ns": 12623.5,
+          "stdev_ns": 253191.94025270586,
+          "total_ms": 89.661177,
+          "ops_per_sec": 55765.4959180382
+        },
+        "composite": {
+          "iterations": 5000,
+          "min_ns": 41470,
+          "max_ns": 13547697,
+          "mean_ns": 63035.1392,
+          "median_ns": 44325.0,
+          "stdev_ns": 478290.8234177668,
+          "total_ms": 315.175696,
+          "ops_per_sec": 15864.167394430058
+        },
+        "complex": {
+          "iterations": 5000,
+          "min_ns": 13446,
+          "max_ns": 13259597,
+          "mean_ns": 22802.1184,
+          "median_ns": 14707.5,
+          "stdev_ns": 318400.29541683197,
+          "total_ms": 114.010592,
+          "ops_per_sec": 43855.57440136791
+        }
+      }
+    },
+    "transactions": {
+      "framework": "foobara-py",
+      "language": "python",
+      "timestamp": 1769788919.89303,
+      "benchmarks": {
+        "no_transaction": {
+          "iterations": 5000,
+          "min_ns": 11491,
+          "max_ns": 12874820,
+          "mean_ns": 17656.934,
+          "median_ns": 12398.0,
+          "stdev_ns": 252914.559954756,
+          "total_ms": 88.28467,
+          "ops_per_sec": 56634.97411271968
+        },
+        "with_transaction": {
+          "iterations": 5000,
+          "min_ns": 11572,
+          "max_ns": 12952784,
+          "mean_ns": 20324.2234,
+          "median_ns": 12413.0,
+          "stdev_ns": 312355.95363473403,
+          "total_ms": 101.621117,
+          "ops_per_sec": 49202.37198337429
+        },
+        "overhead": 0.804376616584438,
+        "single": {
+          "iterations": 3000,
+          "min_ns": 11537,
+          "max_ns": 12569012,
+          "mean_ns": 16890.426,
+          "median_ns": 12466.0,
+          "stdev_ns": 229248.24413982235,
+          "total_ms": 50.671278,
+          "ops_per_sec": 59205.137869228405
+        },
+        "nested": {
+          "iterations": 3000,
+          "min_ns": 26156,
+          "max_ns": 12275495,
+          "mean_ns": 40121.37,
+          "median_ns": 27661.0,
+          "stdev_ns": 378480.89400546515,
+          "total_ms": 120.36411,
+          "ops_per_sec": 24924.37322055553
+        },
+        "commit": {
+          "iterations": 3000,
+          "min_ns": 11981,
+          "max_ns": 13482552,
+          "mean_ns": 21787.835,
+          "median_ns": 12867.5,
+          "stdev_ns": 333785.2869899612,
+          "total_ms": 65.363505,
+          "ops_per_sec": 45897.17151795945
+        },
+        "rollback": {
+          "iterations": 3000,
+          "min_ns": 12237,
+          "max_ns": 12217701,
+          "mean_ns": 17525.625,
+          "median_ns": 13197.5,
+          "stdev_ns": 222822.37451279486,
+          "total_ms": 52.576875,
+          "ops_per_sec": 57059.306016190574
+        }
+      }
+    }
+  }
+}

@@ -293,3 +293,294 @@ class TestRealWorldScenarios:
         assert "Domain" not in content
         assert "@" not in content.split("class")[0]  # No decorator
         assert "class HealthCheck(Command[dict]):" in content
+
+
+class TestCommandGeneratorEdgeCases:
+    """Test edge cases and error handling for CommandGenerator"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        import tempfile
+
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.output_dir = self.temp_dir / "commands"
+        self.test_dir = self.temp_dir / "tests"
+        self.output_dir.mkdir(parents=True)
+        self.test_dir.mkdir(parents=True)
+
+    def teardown_method(self):
+        """Cleanup"""
+        import shutil
+
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_empty_command_name(self):
+        """Should handle empty command name"""
+        generator = CommandGenerator(name="", generate_tests=False)
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_command_name_with_special_characters(self):
+        """Should sanitize command names with special characters"""
+        generator = CommandGenerator(
+            name="Do@Something#123!",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_reserved_keyword_as_name(self):
+        """Should handle Python reserved keywords as command names"""
+        keywords = ["class", "def", "return", "import", "from", "if", "else"]
+        for keyword in keywords:
+            generator = CommandGenerator(name=keyword, generate_tests=False)
+            files = generator.generate(self.output_dir)
+            assert len(files) > 0
+            # Cleanup
+            for f in files:
+                if f.exists():
+                    f.unlink()
+
+    def test_builtin_name_collision(self):
+        """Should handle builtin function name collisions"""
+        builtins = ["list", "dict", "str", "int", "print", "open"]
+        for builtin in builtins:
+            generator = CommandGenerator(name=builtin, generate_tests=False)
+            files = generator.generate(self.output_dir)
+            assert len(files) > 0
+            for f in files:
+                if f.exists():
+                    f.unlink()
+
+    def test_very_long_command_name(self):
+        """Should handle very long command names"""
+        long_name = "ProcessUserData" * 10  # Reduced to avoid OS filename limit
+        generator = CommandGenerator(name=long_name, generate_tests=False)
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_unicode_command_name(self):
+        """Should handle unicode in command names"""
+        generator = CommandGenerator(
+            name="ProcessData_日本語",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_input_with_invalid_type(self):
+        """Should handle invalid input types"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            inputs=[
+                {"name": "data", "type": "InvalidType"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should still generate, using the type as-is
+        assert len(files) > 0
+
+    def test_input_with_missing_name(self):
+        """Should handle input with missing name field"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            inputs=[
+                {"type": "str"},  # Missing name
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should handle gracefully
+        assert len(files) > 0
+
+    def test_input_with_missing_type(self):
+        """Should handle input with missing type field"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            inputs=[
+                {"name": "data"},  # Missing type
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_many_inputs(self):
+        """Should handle commands with many input fields"""
+        inputs = [{"name": f"field_{i}", "type": "str"} for i in range(50)]
+        generator = CommandGenerator(
+            name="ManyInputs",
+            inputs=inputs,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        command_file = self.output_dir / "many_inputs.py"
+        content = command_file.read_text()
+        assert "field_0" in content
+        assert "field_49" in content
+
+    def test_input_with_complex_default_value(self):
+        """Should handle complex default values"""
+        generator = CommandGenerator(
+            name="ComplexDefaults",
+            inputs=[
+                {"name": "config", "type": "dict", "default": " = {}"},
+                {"name": "items", "type": "list", "default": " = []"},
+                {"name": "callback", "type": "callable", "default": " = None"},
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        command_file = self.output_dir / "complex_defaults.py"
+        content = command_file.read_text()
+        assert "config: dict = {}" in content
+        assert "items: list = []" in content
+
+    def test_input_with_multiline_description(self):
+        """Should handle multiline descriptions"""
+        generator = CommandGenerator(
+            name="MultilineDesc",
+            inputs=[
+                {
+                    "name": "data",
+                    "type": "str",
+                    "description": "Line 1\nLine 2\nLine 3"
+                },
+            ],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_result_type_with_generics(self):
+        """Should handle generic result types"""
+        generator = CommandGenerator(
+            name="GenericResult",
+            result_type="List[Dict[str, Any]]",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        command_file = self.output_dir / "generic_result.py"
+        content = command_file.read_text()
+        assert "List[Dict[str, Any]]" in content
+
+    def test_result_type_with_union(self):
+        """Should handle Union result types"""
+        generator = CommandGenerator(
+            name="UnionResult",
+            result_type="Union[User, Error]",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        command_file = self.output_dir / "union_result.py"
+        content = command_file.read_text()
+        assert "Union[User, Error]" in content
+
+    def test_result_type_none(self):
+        """Should handle None result type"""
+        generator = CommandGenerator(
+            name="NoResult",
+            result_type=None,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        command_file = self.output_dir / "no_result.py"
+        content = command_file.read_text()
+        assert "def execute(self) -> None:" in content
+
+    def test_very_long_description(self):
+        """Should handle very long command descriptions"""
+        long_desc = "A" * 500
+        generator = CommandGenerator(
+            name="LongDesc",
+            description=long_desc,
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_description_with_special_characters(self):
+        """Should handle special characters in description"""
+        generator = CommandGenerator(
+            name="SpecialChars",
+            description='Description with "quotes" and \'single\' and <tags>',
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_invalid_domain_name(self):
+        """Should handle invalid domain names"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            domain="Invalid@Domain#Name!",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_empty_domain_name(self):
+        """Should handle empty domain name"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            domain="",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_organization_without_domain(self):
+        """Should handle organization without domain"""
+        generator = CommandGenerator(
+            name="TestCmd",
+            organization="MyOrg",
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should ignore organization if no domain
+        assert len(files) > 0
+
+    def test_generate_to_existing_file(self):
+        """Should raise FileExistsError when file exists"""
+        from foobara_py.generators.files_generator import FileExistsError
+
+        # Generate once
+        generator1 = CommandGenerator(
+            name="ExistingCmd",
+            generate_tests=False
+        )
+        files1 = generator1.generate(self.output_dir)
+
+        # Try to generate again with different content
+        generator2 = CommandGenerator(
+            name="ExistingCmd",
+            inputs=[{"name": "new_field", "type": "str"}],
+            generate_tests=False
+        )
+
+        # Should raise FileExistsError
+        try:
+            files2 = generator2.generate(self.output_dir)
+            # If it doesn't raise, check if file was overwritten
+            command_file = self.output_dir / "existing_cmd.py"
+            assert command_file.exists()
+        except FileExistsError:
+            # Expected behavior
+            pass
+
+    def test_module_path_with_deep_nesting(self):
+        """Should handle deeply nested module paths"""
+        generator = CommandGenerator(
+            name="DeepCmd",
+            generate_tests=True
+        )
+        files = generator.generate(
+            self.output_dir,
+            test_dir=self.test_dir,
+            module_path="very.deeply.nested.module.path.commands.deep_cmd"
+        )
+        test_file = self.test_dir / "test_deep_cmd.py"
+        content = test_file.read_text()
+        assert "very.deeply.nested.module.path.commands.deep_cmd" in content

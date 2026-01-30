@@ -8,7 +8,7 @@ that can accomplish goals using a set of registered commands.
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from foobara_py.ai.llm_backed_command import LlmProvider, get_default_llm_provider
 from foobara_py.ai.types import (
@@ -351,10 +351,9 @@ class Agent:
 class AgentResult(BaseModel):
     """Result of an agent goal execution."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     success: bool
     result: Any = None
     message_to_user: Optional[str] = None
     goal_state: GoalState
-
-    class Config:
-        arbitrary_types_allowed = True

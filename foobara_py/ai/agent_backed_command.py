@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from foobara_py.ai.agent import Agent, AgentResult
 from foobara_py.ai.llm_backed_command import LlmProvider, get_default_llm_provider
 from foobara_py.ai.types import Context, GoalState
-from foobara_py.core.command import Command
+from foobara_py.core.command import Command, AsyncCommand
 
 InputsT = TypeVar("InputsT", bound=BaseModel)
 ResultT = TypeVar("ResultT")
@@ -184,7 +184,7 @@ class AgentBackedCommand(Command[InputsT, ResultT], Generic[InputsT, ResultT]):
         return result
 
 
-class AsyncAgentBackedCommand(Command[InputsT, ResultT], Generic[InputsT, ResultT]):
+class AsyncAgentBackedCommand(AsyncCommand[InputsT, ResultT], Generic[InputsT, ResultT]):
     """
     Async version of AgentBackedCommand.
 

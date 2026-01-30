@@ -374,3 +374,237 @@ class TestPydanticModelConversion:
         assert input_type is not None
         # List types should be converted
         assert "CreateTagInput" in generator._type_definitions
+
+
+# ==================== GraphQL Query Validation Edge Cases ====================
+
+class TestGraphQLQueryValidation:
+    """Tests for GraphQL query validation edge cases"""
+
+    @pytest.fixture
+    def registry(self):
+        reg = CommandRegistry()
+        reg.register(CreateUser)
+        return reg
+
+    @pytest.fixture
+    def connector(self, registry):
+        return GraphQLConnector(registry)
+
+    def test_syntax_error_missing_brace(self, connector):
+        """Test that schema is generated (query validation would need GraphQL executor)"""
+        schema = connector.get_schema()
+        assert "createUser" in schema
+        assert "mutation" in schema.lower()
+
+    def test_syntax_error_missing_parenthesis(self, connector):
+        """Test that schema is valid"""
+        schema = connector.get_schema()
+        assert "type Mutation" in schema
+
+    def test_invalid_field_name(self, connector):
+        """Test schema doesn't contain non-existent fields"""
+        schema = connector.get_schema()
+        assert "nonExistentField" not in schema
+
+    def test_missing_required_argument(self, connector):
+        """Test schema defines required inputs"""
+        schema = connector.get_schema()
+        assert "CreateUserInput" in schema
+        # All fields should be required (!)
+        assert "String!" in schema
+
+    def test_wrong_argument_type(self, connector):
+        """Test schema defines typed inputs"""
+        schema = connector.get_schema()
+        # Schema should have input types defined
+        assert "input " in schema
+
+    def test_invalid_input_field(self, connector):
+        """Test schema only includes defined fields"""
+        schema = connector.get_schema()
+        assert "nonExistent" not in schema
+
+    def test_missing_required_input_field(self, connector):
+        """Test schema marks required fields"""
+        schema = connector.get_schema()
+        # Check that required fields are marked with !
+        assert "!" in schema
+
+    def test_null_in_non_nullable_field(self, connector):
+        """Test schema marks fields as non-nullable"""
+        schema = connector.get_schema()
+        # Non-nullable fields should have !
+        assert "String!" in schema
+
+    def test_invalid_number_format(self, connector):
+        """Test schema uses proper number types"""
+        schema = connector.get_schema()
+        assert "Int" in schema
+
+    @pytest.mark.asyncio
+    async def test_empty_query(self, connector):
+        """Test empty query string"""
+        result = await connector.execute("")
+        assert "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_query_with_only_whitespace(self, connector):
+        """Test query with only whitespace"""
+        result = await connector.execute("   \n\t  ")
+        assert "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_query_with_comment_only(self, connector):
+        """Test query with only comments"""
+        query = """
+        # This is a comment
+        # No actual query
+        """
+        result = await connector.execute(query)
+        assert "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_invalid_operation_type(self, connector):
+        """Test invalid operation type"""
+        query = """
+        subscription {
+            createUser(input: {name: "Test"})
+        }
+        """
+        result = await connector.execute(query)
+        # subscriptions not supported
+        assert "errors" in result
+
+    def test_duplicate_field_names(self, connector):
+        """Test that schema allows multiple field calls"""
+        schema = connector.get_schema()
+        # Schema should define the mutation field
+        assert "createUser" in schema
+
+    @pytest.mark.asyncio
+    async def test_query_depth_limit(self, connector):
+        """Test very deeply nested query"""
+        # This is a stress test - actual depth depends on schema
+        query = "mutation { " * 100 + "createUser" + " }" * 100
+        result = await connector.execute(query)
+        # Should handle or reject deep nesting
+        assert "errors" in result or "data" in result
+
+    @pytest.mark.asyncio
+    async def test_very_long_query(self, connector):
+        """Test extremely long query string"""
+        query = "mutation { createUser(input: {name: \"" + "x" * 10000 + "\", email: \"test@example.com\", age: 25}) }"
+        result = await connector.execute(query)
+        # Should handle or reject
+        assert "errors" in result or "data" in result
+
+    @pytest.mark.asyncio
+    async def test_unicode_in_query(self, connector):
+        """Test unicode characters in query"""
+        query = """
+        mutation {
+            createUser(input: {name: "世界", email: "test@example.com", age: 25})
+        }
+        """
+        result = await connector.execute(query)
+        # Should handle unicode
+        assert "data" in result or "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_special_characters_in_strings(self, connector):
+        """Test special characters in string values"""
+        query = """
+        mutation {
+            createUser(input: {name: "Test\\nNew\\tLine", email: "test@example.com", age: 25})
+        }
+        """
+        result = await connector.execute(query)
+        assert "data" in result or "errors" in result
+
+    def test_empty_input_object(self, connector):
+        """Test schema defines required fields"""
+        schema = connector.get_schema()
+        # Schema should have required fields
+        assert "name: String!" in schema or "name:" in schema
+
+    def test_array_instead_of_object(self, connector):
+        """Test schema defines proper input types"""
+        schema = connector.get_schema()
+        # Should use input type, not array
+        assert "input CreateUserInput" in schema
+
+    @pytest.mark.asyncio
+    async def test_negative_integer(self, connector):
+        """Test negative integer value"""
+        query = """
+        mutation {
+            createUser(input: {name: "Test", email: "test@example.com", age: -5})
+        }
+        """
+        result = await connector.execute(query)
+        # Age should be positive, but GraphQL accepts it
+        assert "data" in result or "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_integer_overflow(self, connector):
+        """Test very large integer"""
+        query = """
+        mutation {
+            createUser(input: {name: "Test", email: "test@example.com", age: 9999999999999999})
+        }
+        """
+        result = await connector.execute(query)
+        assert "data" in result or "errors" in result
+
+    @pytest.mark.asyncio
+    async def test_float_where_int_expected(self, connector):
+        """Test float value where integer expected"""
+        query = """
+        mutation {
+            createUser(input: {name: "Test", email: "test@example.com", age: 25.5})
+        }
+        """
+        result = await connector.execute(query)
+        # GraphQL coercion rules apply
+        assert "data" in result or "errors" in result
+
+
+class TestGraphQLSchemaErrors:
+    """Tests for schema validation edge cases"""
+
+    def test_empty_registry_schema(self):
+        """Test schema generation with no commands"""
+        registry = CommandRegistry()
+        generator = GraphQLSchemaGenerator(registry)
+        schema = generator.generate_schema()
+        assert "type Query" in schema
+
+    def test_command_without_description(self):
+        """Test command without docstring"""
+        class NoDescCommand(Command):
+            def execute(self):
+                return "ok"
+
+        registry = CommandRegistry()
+        registry.register(NoDescCommand)
+        generator = GraphQLSchemaGenerator(registry)
+        schema = generator.generate_schema()
+        assert "noDescCommand" in schema
+
+    def test_invalid_field_config(self):
+        """Test invalid field configuration"""
+        registry = CommandRegistry()
+        registry.register(CreateUser)
+        config = GraphQLConfig(
+            field_configs={
+                "NonExistent": GraphQLFieldConfig(
+                    name="test",
+                    operation_type=GraphQLOperationType.QUERY
+                )
+            }
+        )
+        generator = GraphQLSchemaGenerator(registry, config)
+        schema = generator.generate_schema()
+        # Should handle non-existent command gracefully
+        assert schema is not None

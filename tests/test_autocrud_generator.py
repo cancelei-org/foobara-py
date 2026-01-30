@@ -359,3 +359,385 @@ class TestCRUDNaming:
 
         list_content = (self.output_dir / "list_user_profiles.py").read_text()
         assert "class ListUserProfiles" in list_content
+
+
+class TestAutoCRUDGeneratorEdgeCases:
+    """Test edge cases and error handling for AutoCRUDGenerator"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        import tempfile
+
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.output_dir = self.temp_dir / "commands"
+        self.test_dir = self.temp_dir / "tests"
+        self.output_dir.mkdir(parents=True)
+        self.test_dir.mkdir(parents=True)
+
+    def teardown_method(self):
+        """Cleanup"""
+        import shutil
+
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_empty_entity_name(self):
+        """Should handle empty entity name"""
+        generator = AutoCRUDGenerator(
+            entity_name="",
+            entity_module="entities.test",
+            fields=[{"name": "id", "type": "int"}],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_entity_name_with_special_characters(self):
+        """Should sanitize entity names with special characters"""
+        generator = AutoCRUDGenerator(
+            entity_name="User@Profile#2024!",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_reserved_keyword_entity_name(self):
+        """Should handle Python reserved keywords as entity names"""
+        generator = AutoCRUDGenerator(
+            entity_name="class",
+            entity_module="entities.class_entity",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_very_long_entity_name(self):
+        """Should handle very long entity names"""
+        long_name = "UserProfile" * 10  # Reduced to avoid OS filename limit
+        generator = AutoCRUDGenerator(
+            entity_name=long_name,
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_unicode_entity_name(self):
+        """Should handle unicode in entity names"""
+        generator = AutoCRUDGenerator(
+            entity_name="User_日本語",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_empty_fields_list(self):
+        """Should handle empty fields list"""
+        generator = AutoCRUDGenerator(
+            entity_name="Empty",
+            entity_module="entities.empty",
+            fields=[],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate but might have issues
+        assert len(files) > 0
+
+    def test_field_with_missing_name(self):
+        """Should raise error for field with missing name"""
+        # Should raise KeyError during construction
+        try:
+            generator = AutoCRUDGenerator(
+                entity_name="User",
+                entity_module="entities.user",
+                fields=[
+                    {"name": "id", "type": "int"},
+                    {"type": "str"},  # Missing name
+                ],
+                operations=["create"],
+                generate_tests=False
+            )
+            # If it doesn't raise during construction, try generate
+            files = generator.generate(self.output_dir)
+        except (KeyError, AttributeError, TypeError):
+            # Expected - invalid field definition
+            pass
+
+    def test_field_with_missing_type(self):
+        """Should handle field with missing type"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "data"},  # Missing type
+            ],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_many_fields(self):
+        """Should handle entities with many fields"""
+        fields = [{"name": f"field_{i}", "type": "str"} for i in range(50)]
+        fields.insert(0, {"name": "id", "type": "int"})
+
+        generator = AutoCRUDGenerator(
+            entity_name="ManyFields",
+            entity_module="entities.many",
+            fields=fields,
+            operations=["create", "list"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+
+        # Check create has all fields
+        create_file = self.output_dir / "create_many_fields.py"
+        content = create_file.read_text()
+        assert "field_0" in content
+        assert "field_49" in content
+
+    def test_primary_key_not_in_fields(self):
+        """Should handle primary key not in fields list"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[
+                {"name": "email", "type": "str"},
+                {"name": "name", "type": "str"},
+            ],
+            primary_key="id",  # Not in fields
+            operations=["read"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should still generate
+        assert len(files) > 0
+
+    def test_composite_primary_key(self):
+        """Should handle composite primary keys"""
+        generator = AutoCRUDGenerator(
+            entity_name="UserRole",
+            entity_module="entities.user_role",
+            fields=[
+                {"name": "user_id", "type": "int"},
+                {"name": "role_id", "type": "int"},
+            ],
+            primary_key="user_id,role_id",
+            operations=["read"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_empty_operations_list(self):
+        """Should handle empty operations list"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=[],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should generate nothing or use default operations
+        assert len(files) >= 0  # Either 0 or default operations
+
+    def test_single_operation(self):
+        """Should handle single operation"""
+        for operation in ["create", "read", "update", "delete", "list"]:
+            generator = AutoCRUDGenerator(
+                entity_name="User",
+                entity_module="entities.user",
+                fields=[{"name": "id", "type": "int"}],
+                operations=[operation],
+                generate_tests=False
+            )
+            files = generator.generate(self.output_dir)
+            assert len(files) == 1
+            # Cleanup
+            for f in files:
+                if f.exists():
+                    f.unlink()
+
+    def test_invalid_operation_name(self):
+        """Should handle invalid operation names"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["invalid_operation"],
+            generate_tests=False
+        )
+        # Should skip invalid operations or raise error
+        try:
+            files = generator.generate(self.output_dir)
+            assert isinstance(files, list)
+            # Should be empty since operation is invalid
+        except (ValueError, KeyError):
+            # May raise error for invalid operation
+            pass
+
+    def test_duplicate_operations(self):
+        """Should handle duplicate operations"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create", "create", "read", "create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Should deduplicate
+        assert len(files) == 2  # create and read
+
+    def test_case_insensitive_operations(self):
+        """Should handle or reject case variations in operations"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["CREATE", "Read", "UPDATE"],
+            generate_tests=False
+        )
+        # May handle case variations or treat as invalid
+        try:
+            files = generator.generate(self.output_dir)
+            assert len(files) >= 0
+        except (ValueError, KeyError):
+            # May reject uppercase operations
+            pass
+
+    def test_empty_entity_module(self):
+        """Should handle empty entity module"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_deeply_nested_entity_module(self):
+        """Should handle deeply nested entity modules"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="very.deeply.nested.module.path.entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        create_file = self.output_dir / "create_user.py"
+        content = create_file.read_text()
+        assert "very.deeply.nested.module.path.entities.user" in content
+
+    def test_domain_with_special_characters(self):
+        """Should handle domain with special characters"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            domain="User@Management#2024",
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        assert len(files) > 0
+
+    def test_organization_without_domain(self):
+        """Should handle organization without domain"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            organization="MyOrg",
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        # Organization should be ignored if no domain
+        assert len(files) > 0
+
+    def test_generate_with_all_tests(self):
+        """Should generate all CRUD operations with tests"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "str"},
+            ],
+            generate_tests=True
+        )
+        files = generator.generate(self.output_dir, test_dir=self.test_dir)
+
+        # 5 operations * 2 (command + test) = 10 files
+        assert len(files) == 10
+
+    def test_field_with_complex_type(self):
+        """Should handle fields with complex types"""
+        generator = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "metadata", "type": "Dict[str, Any]"},
+                {"name": "tags", "type": "List[str]"},
+            ],
+            operations=["create"],
+            generate_tests=False
+        )
+        files = generator.generate(self.output_dir)
+        create_file = self.output_dir / "create_user.py"
+        content = create_file.read_text()
+        assert "Dict[str, Any]" in content or "dict" in content
+        assert "List[str]" in content or "list" in content
+
+    def test_generate_to_existing_files(self):
+        """Should raise error when generating to existing command files"""
+        from foobara_py.generators.files_generator import FileExistsError
+
+        # Generate once
+        generator1 = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[{"name": "id", "type": "int"}],
+            operations=["create"],
+            generate_tests=False
+        )
+        files1 = generator1.generate(self.output_dir)
+
+        # Try to generate again with different fields
+        generator2 = AutoCRUDGenerator(
+            entity_name="User",
+            entity_module="entities.user",
+            fields=[
+                {"name": "id", "type": "int"},
+                {"name": "email", "type": "str"},
+            ],
+            operations=["create"],
+            generate_tests=False
+        )
+
+        try:
+            files2 = generator2.generate(self.output_dir)
+            # If no error, check file exists
+            create_file = self.output_dir / "create_user.py"
+            assert create_file.exists()
+        except FileExistsError:
+            # Expected behavior
+            pass

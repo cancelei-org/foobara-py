@@ -7,7 +7,7 @@ a specific command's inputs and outputs.
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.core.command import Command
 
@@ -15,11 +15,10 @@ from foobara_py.core.command import Command
 class DescribeCommandInputs(BaseModel):
     """Inputs for DescribeCommand command."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     agent: Any = Field(..., description="The agent instance")
     command_name: str = Field(..., description="Name of the command to describe")
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class DescribeCommandResult(BaseModel):

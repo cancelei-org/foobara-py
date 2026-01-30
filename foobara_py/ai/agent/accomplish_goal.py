@@ -8,7 +8,7 @@ or the agent gives up.
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.ai.agent.determine_next_command import DetermineNextCommandNameAndInputs
 from foobara_py.core.command import Command
@@ -17,22 +17,20 @@ from foobara_py.core.command import Command
 class AccomplishGoalInputs(BaseModel):
     """Inputs for AccomplishGoal command."""
 
-    agent: Any = Field(..., description="The agent instance")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
+    agent: Any = Field(..., description="The agent instance")
 
 
 class AccomplishGoalResult(BaseModel):
     """Result of AccomplishGoal command."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     accomplished: bool = Field(..., description="Whether the goal was accomplished")
     iterations: int = Field(..., description="Number of iterations run")
     final_result: Any = Field(None, description="Final result if accomplished")
     message: Optional[str] = Field(None, description="Final message from agent")
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class AccomplishGoal(Command[AccomplishGoalInputs, AccomplishGoalResult]):

@@ -1,0 +1,6 @@
+Benchmark,Python (μs),Ruby (μs),Python (ops/sec),Ruby (ops/sec),Ratio,Status
+complex,22.62,32.00,44217,31250,0.71,faster
+composite,65.93,75.00,15168,13333,0.88,faster
+simple_command,19.36,22.00,51659,45454,0.88,faster
+validated,19.47,28.00,51353,35714,0.70,faster
+with_callbacks,19.56,25.00,51124,40000,0.78,faster

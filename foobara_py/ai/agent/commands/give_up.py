@@ -7,7 +7,7 @@ the current goal and wishes to give up.
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from foobara_py.core.command import Command
 
@@ -15,13 +15,12 @@ from foobara_py.core.command import Command
 class GiveUpInputs(BaseModel):
     """Inputs for GiveUp command."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     agent: Any = Field(..., description="The agent instance")
     message_to_user: Optional[str] = Field(
         None, description="Optional message to the user explaining why you decided to give up"
     )
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class GiveUp(Command[GiveUpInputs, None]):

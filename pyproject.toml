@@ -67,6 +67,7 @@ dev = [
     "pytest-cov>=4.0",
     "mypy>=1.0",
     "ruff>=0.1",
+    "hypothesis>=6.0",
 ]
 all = [
     "foobara-py[mcp,agent,http,cli,persistence,dev]",

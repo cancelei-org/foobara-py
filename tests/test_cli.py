@@ -292,3 +292,257 @@ class TestConsoleCommand:
         result = runner.invoke(app, ["console", "--help"])
         assert result.exit_code == 0
         assert "interactive" in result.stdout.lower()
+
+
+# ==================== CLI Argument Parsing Edge Cases ====================
+
+class TestCLIArgumentParsing:
+    """Tests for CLI argument parsing edge cases"""
+
+    def test_invalid_command(self):
+        """Test running invalid command"""
+        result = runner.invoke(app, ["invalid-command"])
+        assert result.exit_code != 0
+
+    def test_missing_required_argument(self):
+        """Test missing required argument"""
+        result = runner.invoke(app, ["new"])
+        assert result.exit_code != 0
+
+    def test_unknown_flag(self):
+        """Test unknown flag"""
+        result = runner.invoke(app, ["--unknown-flag"])
+        assert result.exit_code != 0
+
+    def test_duplicate_flags(self):
+        """Test duplicate flags"""
+        result = runner.invoke(app, ["version", "--help", "--help"])
+        # Should handle gracefully
+        assert result.exit_code == 0
+
+    def test_conflicting_flags(self):
+        """Test conflicting template options"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "Test",
+                "--path", str(temp_dir),
+                "--template", "basic",
+                "--template", "api"
+            ])
+            # Last one wins or error
+            assert result.exit_code in [0, 1, 2]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_empty_string_argument(self):
+        """Test empty string as argument"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "",
+                "--path", str(temp_dir)
+            ])
+            # Should reject empty name or handle gracefully
+            # Some implementations may accept empty string
+            assert result.exit_code in [0, 1, 2]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_special_characters_in_name(self):
+        """Test special characters in project name"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "test@#$%",
+                "--path", str(temp_dir)
+            ])
+            # Should handle or sanitize special chars
+            assert result.exit_code in [0, 1]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_unicode_in_name(self):
+        """Test unicode characters in name"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "test世界",
+                "--path", str(temp_dir)
+            ])
+            # Should handle unicode
+            assert result.exit_code in [0, 1]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_very_long_name(self):
+        """Test very long project name"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "x" * 1000,
+                "--path", str(temp_dir)
+            ])
+            # Should handle or reject long names
+            assert result.exit_code in [0, 1]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_path_with_spaces(self):
+        """Test path containing spaces"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        path_with_spaces = temp_dir / "path with spaces"
+        path_with_spaces.mkdir(exist_ok=True)
+        try:
+            result = runner.invoke(app, [
+                "new", "Test",
+                "--path", str(path_with_spaces)
+            ])
+            assert result.exit_code == 0
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_nonexistent_path(self):
+        """Test path that doesn't exist"""
+        result = runner.invoke(app, [
+            "new", "Test",
+            "--path", "/nonexistent/path/that/does/not/exist"
+        ])
+        # Should create or error
+        assert result.exit_code in [0, 1]
+
+    def test_invalid_template_name(self):
+        """Test invalid template name"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "new", "Test",
+                "--path", str(temp_dir),
+                "--template", "nonexistent_template"
+            ])
+            # Should error on invalid template or fall back to default
+            assert result.exit_code in [0, 1, 2]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_multiple_input_flags(self):
+        """Test multiple -i flags"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "generate", "command", "Test",
+                "--output", str(temp_dir),
+                "-i", "field1:str",
+                "-i", "field2:int",
+                "-i", "field3:bool",
+                "--no-tests"
+            ])
+            assert result.exit_code == 0
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_invalid_field_syntax(self):
+        """Test invalid field syntax"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "generate", "command", "Test",
+                "--output", str(temp_dir),
+                "-i", "invalid_syntax",
+                "--no-tests"
+            ])
+            # Should error on invalid syntax
+            assert result.exit_code in [0, 1]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_unsupported_field_type(self):
+        """Test unsupported field type"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            result = runner.invoke(app, [
+                "generate", "command", "Test",
+                "--output", str(temp_dir),
+                "-i", "field:unknown_type",
+                "--no-tests"
+            ])
+            # Should handle or error
+            assert result.exit_code in [0, 1]
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_no_arguments(self):
+        """Test running without any arguments"""
+        result = runner.invoke(app, [])
+        # Should show help or error
+        assert result.exit_code in [0, 2]
+
+    def test_help_for_nonexistent_command(self):
+        """Test help for non-existent command"""
+        result = runner.invoke(app, ["nonexistent", "--help"])
+        assert result.exit_code != 0
+
+    def test_case_sensitive_commands(self):
+        """Test command case sensitivity"""
+        result = runner.invoke(app, ["VERSION"])
+        # Commands are case-sensitive
+        assert result.exit_code != 0
+
+    def test_abbreviated_commands(self):
+        """Test abbreviated command names"""
+        result = runner.invoke(app, ["ver"])
+        # Should not match 'version' unless configured
+        assert result.exit_code != 0
+
+    def test_dash_vs_underscore(self):
+        """Test dash vs underscore in options"""
+        import tempfile
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            # Both should work or one should error
+            result1 = runner.invoke(app, [
+                "generate", "command", "Test",
+                "--output", str(temp_dir),
+                "--no-tests"
+            ])
+            result2 = runner.invoke(app, [
+                "generate", "command", "Test2",
+                "--output", str(temp_dir),
+                "--no_tests"
+            ])
+            # At least one format should work
+            assert result1.exit_code == 0 or result2.exit_code == 0
+        finally:
+            import shutil
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
