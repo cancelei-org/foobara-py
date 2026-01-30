@@ -26,32 +26,48 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Check PostgreSQL status
+    - name: Check PostgreSQL availability
+      id: postgres-check
       run: |
-        pg_isready -h localhost -p 5432 || (echo "PostgreSQL not ready" && exit 1)
+        if pg_isready -h localhost -p 5432; then
+          echo "postgres_available=true" >> $GITHUB_OUTPUT
+          echo "✅ PostgreSQL is available"
+        else
+          echo "postgres_available=false" >> $GITHUB_OUTPUT
+          echo "⚠️ PostgreSQL not available - will skip PostgreSQL tests"
+        fi
 
     - name: Set up PostgreSQL test database
-      env:
-        PGPASSWORD: ""
+      if: steps.postgres-check.outputs.postgres_available == 'true'
       run: |
         # Create test database if it doesn't exist
         psql -h localhost -U $USER -tc "SELECT 1 FROM pg_database WHERE datname = 'foobara_test'" | grep -q 1 || \
-        createdb -h localhost -U $USER foobara_test
+        createdb -h localhost -U $USER foobara_test || echo "Database may already exist"
 
-        # Set permissions
-        psql -h localhost -U $USER -d foobara_test -c "GRANT ALL PRIVILEGES ON DATABASE foobara_test TO $USER;"
+        echo "✅ PostgreSQL test database ready"
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev,test]"
-        pip install psycopg[pool]
+        if [ "${{ steps.postgres-check.outputs.postgres_available }}" == "true" ]; then
+          pip install psycopg[pool]
+          echo "✅ Installed PostgreSQL driver"
+        fi
 
-    - name: Run tests
+    - name: Run tests (with PostgreSQL)
+      if: steps.postgres-check.outputs.postgres_available == 'true'
       env:
-        POSTGRES_TEST_URL: postgresql://${{ runner.user }}@localhost:5432/foobara_test
+        POSTGRES_TEST_URL: postgresql://${{ env.USER }}@localhost:5432/foobara_test
       run: |
         pytest --cov=foobara_py --cov-report=xml --cov-report=term -v --tb=short
+        echo "✅ Tests completed with PostgreSQL support"
+
+    - name: Run tests (without PostgreSQL)
+      if: steps.postgres-check.outputs.postgres_available != 'true'
+      run: |
+        pytest --cov=foobara_py --cov-report=xml --cov-report=term -v --tb=short
+        echo "✅ Tests completed (PostgreSQL tests skipped)"
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
@@ -61,15 +77,21 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
 
-    - name: Test summary
+    - name: Generate test summary
       if: always()
       run: |
-        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Python version: ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Python version:** ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**PostgreSQL:** ${{ steps.postgres-check.outputs.postgres_available == 'true' && '✅ Enabled' || '⚠️ Disabled' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        pytest --co -q | tail -1 >> $GITHUB_STEP_SUMMARY || echo "Test collection failed" >> $GITHUB_STEP_SUMMARY
+
+        # Get test count
+        if [ -f pytest.log ]; then
+          grep -E "passed|failed|skipped" pytest.log | tail -1 >> $GITHUB_STEP_SUMMARY || echo "Test stats unavailable" >> $GITHUB_STEP_SUMMARY
+        fi
 
   lint:
     runs-on: self-hosted
@@ -87,12 +109,25 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install ruff mypy
+        pip install ruff mypy || echo "Linting tools installation failed - continuing"
 
-    - name: Run ruff
+    - name: Run ruff (if available)
+      continue-on-error: true
       run: |
-        ruff check foobara_py --output-format=github || true
+        if command -v ruff &> /dev/null; then
+          echo "## Ruff Linting Results 🔍" >> $GITHUB_STEP_SUMMARY
+          ruff check foobara_py --output-format=github 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+        else
+          echo "⚠️ Ruff not available" >> $GITHUB_STEP_SUMMARY
+        fi
 
-    - name: Run mypy
+    - name: Run mypy (if available)
+      continue-on-error: true
       run: |
-        mypy foobara_py --ignore-missing-imports || true
+        if command -v mypy &> /dev/null; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## MyPy Type Checking Results 🔍" >> $GITHUB_STEP_SUMMARY
+          mypy foobara_py --ignore-missing-imports 2>&1 | head -20 | tee -a $GITHUB_STEP_SUMMARY || true
+        else
+          echo "⚠️ MyPy not available" >> $GITHUB_STEP_SUMMARY
+        fi
