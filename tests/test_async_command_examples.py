@@ -93,7 +93,7 @@ class TestLifecycleHooks:
 
     @pytest.mark.asyncio
     async def test_before_execute_hook(self):
-        """Test before_execute hook"""
+        """Test before_execute hook (using old method for async commands)"""
         execution_log = []
 
         class MyInputs(BaseModel):
@@ -127,7 +127,7 @@ class TestLifecycleHooks:
 
     @pytest.mark.asyncio
     async def test_after_execute_hook(self):
-        """Test after_execute hook"""
+        """Test after_execute hook (using old method for async commands)"""
         class MyInputs(BaseModel):
             value: int
 

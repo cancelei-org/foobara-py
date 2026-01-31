@@ -4,12 +4,11 @@ StateConcern - Command state machine and execution flow.
 Handles:
 - State machine management
 - 8-phase execution flow
-- Callback execution (enhanced and legacy)
+- Enhanced callback execution
 - Outcome generation
 
 Features:
 - Enhanced callbacks with state transition awareness
-- Backward compatibility with phase-based callbacks
 - Conditional callback execution based on state transitions
 
 Pattern: Ruby Foobara's StateMachine concern
@@ -17,7 +16,6 @@ Pattern: Ruby Foobara's StateMachine concern
 
 from typing import Any, Callable, ClassVar, Optional
 
-from foobara_py.core.callbacks import CallbackExecutor, CallbackPhase, CallbackRegistry
 from foobara_py.core.callbacks_enhanced import EnhancedCallbackExecutor, EnhancedCallbackRegistry
 from foobara_py.core.state_machine import STATE_NAMES, CommandState, CommandStateMachine, Halt
 
@@ -25,13 +23,11 @@ from foobara_py.core.state_machine import STATE_NAMES, CommandState, CommandStat
 class StateConcern:
     """Mixin for state machine and execution flow."""
 
-    # Class-level callback registries
-    _callback_registry: ClassVar[Optional[CallbackRegistry]] = None
+    # Class-level callback registry
     _enhanced_callback_registry: ClassVar[Optional[EnhancedCallbackRegistry]] = None
 
     # Instance attributes (defined in __slots__ in Command)
     _state_machine: CommandStateMachine
-    _callback_executor: Optional[CallbackExecutor]
     _enhanced_callback_executor: Optional[EnhancedCallbackExecutor]
     _outcome: Optional["CommandOutcome"]
 
@@ -74,27 +70,18 @@ class StateConcern:
         """
         from foobara_py.core.outcome import CommandOutcome
 
-        # Initialize enhanced callback executor if registry exists and has callbacks
-        if (
-            hasattr(self.__class__, "_enhanced_callback_registry")
-            and self.__class__._enhanced_callback_registry
-            and self.__class__._enhanced_callback_registry.has_callbacks()
-        ):
+        # Initialize enhanced callback executor (always use if registry exists)
+        if self.__class__._enhanced_callback_registry:
             self._enhanced_callback_executor = EnhancedCallbackExecutor(
                 self.__class__._enhanced_callback_registry, self
             )
         else:
             self._enhanced_callback_executor = None
 
-        # Initialize callback executor (legacy support)
-        if self._callback_registry:
-            self._callback_executor = CallbackExecutor(self._callback_registry, self)
-
         try:
             # Phase 1: Open transaction
             self._execute_phase(
                 CommandState.OPENING_TRANSACTION,
-                CallbackPhase.OPEN_TRANSACTION,
                 self.open_transaction,
                 transition_name="open_transaction",
             )
@@ -105,7 +92,6 @@ class StateConcern:
                 # Phase 2: Cast and validate inputs
                 self._execute_phase(
                     CommandState.CASTING_AND_VALIDATING_INPUTS,
-                    CallbackPhase.CAST_AND_VALIDATE_INPUTS,
                     self.cast_and_validate_inputs,
                     transition_name="cast_and_validate_inputs",
                 )
@@ -115,7 +101,6 @@ class StateConcern:
                 # Phase 3: Load records
                 self._execute_phase(
                     CommandState.LOADING_RECORDS,
-                    CallbackPhase.LOAD_RECORDS,
                     self.load_records,
                     transition_name="load_records",
                 )
@@ -125,7 +110,6 @@ class StateConcern:
                 # Phase 4: Validate records
                 self._execute_phase(
                     CommandState.VALIDATING_RECORDS,
-                    CallbackPhase.VALIDATE_RECORDS,
                     self.validate_records,
                     transition_name="validate_records",
                 )
@@ -135,7 +119,6 @@ class StateConcern:
                 # Phase 5: Validate
                 self._execute_phase(
                     CommandState.VALIDATING,
-                    CallbackPhase.VALIDATE,
                     self.validate,
                     transition_name="validate",
                 )
@@ -145,21 +128,20 @@ class StateConcern:
                 # Phase 6: Execute
                 try:
                     # Call before_execute hook if defined (optimized with single boolean check)
-                    if self.__class__._has_before_execute:
+                    if getattr(self.__class__, '_has_before_execute', False):
                         self.before_execute()
                         if self._errors.has_errors():
                             return self._fail()
 
-                    # Execute phase with enhanced or legacy callbacks
+                    # Execute phase with enhanced callbacks
                     self._result = self._execute_phase(
                         CommandState.EXECUTING,
-                        CallbackPhase.EXECUTE,
                         self.execute,
                         transition_name="execute",
                     )
 
                     # Call after_execute hook if defined (optimized with single boolean check)
-                    if self.__class__._has_after_execute:
+                    if getattr(self.__class__, '_has_after_execute', False):
                         self._result = self.after_execute(self._result)
                 except Halt:
                     return self._fail()
@@ -179,7 +161,6 @@ class StateConcern:
                 # Phase 7: Commit transaction
                 self._execute_phase(
                     CommandState.COMMITTING_TRANSACTION,
-                    CallbackPhase.COMMIT_TRANSACTION,
                     self.commit_transaction,
                     transition_name="commit_transaction",
                 )
@@ -207,21 +188,18 @@ class StateConcern:
     def _execute_phase(
         self,
         state: CommandState,
-        callback_phase: CallbackPhase,
         action: Callable[[], Any],
-        transition_name: Optional[str] = None,
+        transition_name: str,
     ) -> Any:
         """
         Execute a phase with state transition and callbacks.
 
-        Supports both enhanced callbacks (with state transition awareness)
-        and legacy callbacks (phase-based).
+        Uses enhanced callbacks with state transition awareness.
 
         Args:
             state: State to transition to
-            callback_phase: Callback phase to execute (for legacy callbacks)
             action: Action to perform
-            transition_name: Transition name for enhanced callbacks (defaults to phase value)
+            transition_name: Transition name for enhanced callbacks
 
         Returns:
             Result from action execution
@@ -235,19 +213,12 @@ class StateConcern:
         # Transition state
         self._state_machine.transition_to(state)
 
-        # Default transition name to callback phase value
-        if transition_name is None:
-            transition_name = callback_phase.value
-
         try:
             # Execute with enhanced callbacks if available
-            if hasattr(self, "_enhanced_callback_executor") and self._enhanced_callback_executor:
+            if self._enhanced_callback_executor:
                 return self._enhanced_callback_executor.execute_transition(
                     from_state, to_state, transition_name, action
                 )
-            # Fall back to legacy callback system
-            elif self._callback_executor:
-                return self._callback_executor.execute_phase(callback_phase, action)
             # No callbacks - execute directly
             else:
                 return action()

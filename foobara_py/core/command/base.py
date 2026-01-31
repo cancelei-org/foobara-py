@@ -23,7 +23,7 @@ from typing import Any, ClassVar, Dict, Generic, Optional, Tuple, TypeVar
 
 from pydantic import BaseModel
 
-from foobara_py.core.callbacks import CallbackRegistry
+from foobara_py.core.callbacks_enhanced import EnhancedCallbackRegistry
 from foobara_py.core.errors import ErrorCollection
 from foobara_py.core.state_machine import CommandStateMachine
 
@@ -60,56 +60,18 @@ class CommandMeta(ABCMeta):
     def __new__(mcs, name: str, bases: tuple, namespace: dict, **kwargs):
         cls = super().__new__(mcs, name, bases, namespace)
 
-        # Initialize callback registry
-        if not hasattr(cls, "_callback_registry") or cls._callback_registry is None:
-            cls._callback_registry = CallbackRegistry()
-
         # Initialize enhanced callback registry
         if not hasattr(cls, "_enhanced_callback_registry") or cls._enhanced_callback_registry is None:
-            from foobara_py.core.callbacks_enhanced import EnhancedCallbackRegistry
             cls._enhanced_callback_registry = EnhancedCallbackRegistry()
 
         # Inherit callbacks from parent
         for base in bases:
-            if hasattr(base, "_callback_registry") and base._callback_registry:
-                cls._callback_registry = base._callback_registry.merge(cls._callback_registry)
             if hasattr(base, "_enhanced_callback_registry") and base._enhanced_callback_registry:
                 cls._enhanced_callback_registry = base._enhanced_callback_registry.merge(cls._enhanced_callback_registry)
-
-        # Register callbacks from decorated methods
-        for attr_name, attr_value in namespace.items():
-            if hasattr(attr_value, "_callbacks"):
-                for phase, callback_type, priority in attr_value._callbacks:
-                    cls._callback_registry.register(phase, callback_type, attr_value, priority)
 
         # Extract and cache type parameters
         cls._cached_inputs_type = None
         cls._cached_result_type = None
-
-        # Detect hook overrides for performance optimization
-        # Check if before_execute is overridden from base ExecutionConcern
-        from foobara_py.core.command.concerns.execution_concern import ExecutionConcern
-        cls._has_before_execute = (
-            'before_execute' in namespace or
-            any(hasattr(base, 'before_execute') and
-                getattr(base, 'before_execute', None) is not ExecutionConcern.before_execute
-                for base in bases if base is not ExecutionConcern)
-        )
-
-        # Check if after_execute is overridden from base ExecutionConcern
-        cls._has_after_execute = (
-            'after_execute' in namespace or
-            any(hasattr(base, 'after_execute') and
-                getattr(base, 'after_execute', None) is not ExecutionConcern.after_execute
-                for base in bases if base is not ExecutionConcern)
-        )
-
-        # Check if any callbacks are registered
-        cls._has_callbacks = cls._callback_registry and cls._callback_registry.has_any_callbacks()
-
-        # Pre-compile callback chains for faster execution (cache at class level)
-        if cls._has_callbacks:
-            cls._callback_registry.precompile_chains()
 
         return cls
 
@@ -179,13 +141,9 @@ class Command(
     _description: ClassVar[Optional[str]] = None
     _depends_on: ClassVar[Tuple[str, ...]] = ()
     _possible_errors: ClassVar[Dict[str, Dict]] = {}
-    _callback_registry: ClassVar[Optional[CallbackRegistry]] = None
     _enhanced_callback_registry: ClassVar[Optional["EnhancedCallbackRegistry"]] = None
     _cached_inputs_type: ClassVar[Optional[type[BaseModel]]] = None
     _cached_result_type: ClassVar[Optional[type]] = None
-    _has_before_execute: ClassVar[bool] = False
-    _has_after_execute: ClassVar[bool] = False
-    _has_callbacks: ClassVar[bool] = False
 
     # Instance attributes (using __slots__ for performance)
     __slots__ = (
@@ -198,7 +156,6 @@ class Command(
         "_transaction",
         "_subcommand_runtime_path",
         "_loaded_records",
-        "_callback_executor",
         "_enhanced_callback_executor",
     )
 
@@ -238,14 +195,12 @@ class Command(
         self._transaction: Optional["TransactionContext"] = None
         self._subcommand_runtime_path: Tuple[str, ...] = _runtime_path
         self._loaded_records: Dict[str, Any] = {}
-        self._callback_executor: Optional["CallbackExecutor"] = None
         self._enhanced_callback_executor: Optional["EnhancedCallbackExecutor"] = None
 
 
 # Import here to avoid circular dependency
 from foobara_py.core.outcome import CommandOutcome
 from foobara_py.core.transactions import TransactionContext, TransactionConfig
-from foobara_py.core.callbacks import CallbackExecutor
 from foobara_py.core.callbacks_enhanced import EnhancedCallbackExecutor
 
 # Ensure TransactionConfig is available

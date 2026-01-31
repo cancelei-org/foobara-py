@@ -5,12 +5,12 @@ Lifecycle Hooks Example
 Demonstrates before_execute callback for cross-cutting concerns
 like authorization and logging.
 
-Uses the v2 callback decorator system.
+Uses the enhanced callback DSL system.
 """
 
 from datetime import datetime
 from pydantic import BaseModel, Field
-from foobara_py import Command, before_execute
+from foobara_py import Command
 
 
 # Simple audit log
@@ -38,27 +38,6 @@ class TransferFunds(Command[TransferFundsInputs, TransferResult]):
     _current_user: str = "user_123"
     _authorized_users: set = {"user_123", "admin"}
 
-    @before_execute()
-    def authorize(self) -> None:
-        """Authorization check before transfer"""
-        if self._current_user not in self._authorized_users:
-            self.add_runtime_error(
-                'unauthorized',
-                f'User {self._current_user} is not authorized to transfer funds',
-                halt=True
-            )
-            return
-
-        # Log the attempt
-        audit_log.append({
-            'event': 'transfer_attempt',
-            'user': self._current_user,
-            'from': self.inputs.from_account,
-            'to': self.inputs.to_account,
-            'amount': self.inputs.amount,
-            'timestamp': datetime.now().isoformat()
-        })
-
     def execute(self) -> TransferResult:
         # Business logic - transfer funds
         result = TransferResult(
@@ -78,6 +57,31 @@ class TransferFunds(Command[TransferFundsInputs, TransferResult]):
         })
 
         return result
+
+
+# Register authorization callback using DSL
+def authorize(cmd):
+    """Authorization check before transfer"""
+    if cmd._current_user not in cmd._authorized_users:
+        cmd.add_runtime_error(
+            'unauthorized',
+            f'User {cmd._current_user} is not authorized to transfer funds',
+            halt=True
+        )
+        return
+
+    # Log the attempt
+    audit_log.append({
+        'event': 'transfer_attempt',
+        'user': cmd._current_user,
+        'from': cmd.inputs.from_account,
+        'to': cmd.inputs.to_account,
+        'amount': cmd.inputs.amount,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+TransferFunds.before_execute_transition(authorize)
 
 
 if __name__ == "__main__":

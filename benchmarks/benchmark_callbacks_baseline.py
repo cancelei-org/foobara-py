@@ -10,7 +10,6 @@ from typing import Callable, List
 from pydantic import BaseModel
 
 from foobara_py import Command
-from foobara_py.core.callbacks import CallbackPhase, CallbackRegistry
 from foobara_py.core.state_machine import CommandState
 
 

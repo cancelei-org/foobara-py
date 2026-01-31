@@ -10,7 +10,7 @@ from typing import Any, ClassVar, Dict, Generic, List, Optional, Tuple, Type, Ty
 
 from pydantic import BaseModel, ValidationError
 
-from foobara_py.core.callbacks import CallbackRegistry
+from foobara_py.core.callbacks_enhanced import EnhancedCallbackRegistry
 from foobara_py.core.errors import ErrorCollection, FoobaraError, Symbols
 from foobara_py.core.outcome import CommandOutcome
 from foobara_py.core.state_machine import CommandState, CommandStateMachine, Halt
@@ -18,6 +18,7 @@ from foobara_py.core.transactions import TransactionConfig
 
 from .base import CommandMeta
 from .concerns import (
+    CallbacksConcern,
     ErrorsConcern,
     InputsConcern,
     MetadataConcern,
@@ -35,6 +36,7 @@ class AsyncCommand(
     ErrorsConcern,
     InputsConcern,
     MetadataConcern,
+    CallbacksConcern,
     ABC,
     Generic[InputT, ResultT],
     metaclass=CommandMeta,
@@ -51,7 +53,7 @@ class AsyncCommand(
     _depends_on: ClassVar[Tuple[str, ...]] = ()
     _possible_errors: ClassVar[Dict[str, Dict]] = {}
     _transaction_config: ClassVar[TransactionConfig] = TransactionConfig(enabled=False)
-    _callback_registry: ClassVar[Optional[CallbackRegistry]] = None
+    _enhanced_callback_registry: ClassVar[Optional[EnhancedCallbackRegistry]] = None
     _cached_inputs_type: ClassVar[Optional[Type[BaseModel]]] = None
     _cached_result_type: ClassVar[Optional[Type]] = None
 
@@ -65,7 +67,6 @@ class AsyncCommand(
         "_transaction",
         "_subcommand_runtime_path",
         "_loaded_records",
-        "_callback_executor",
         "_enhanced_callback_executor",
     )
 
@@ -186,6 +187,15 @@ class AsyncCommand(
 
     async def run_instance(self) -> CommandOutcome[ResultT]:
         """Run async command instance"""
+        # Initialize enhanced callback executor if registry exists
+        if self.__class__._enhanced_callback_registry:
+            from foobara_py.core.callbacks_enhanced import EnhancedCallbackExecutor
+            self._enhanced_callback_executor = EnhancedCallbackExecutor(
+                self.__class__._enhanced_callback_registry, self
+            )
+        else:
+            self._enhanced_callback_executor = None
+
         self._state_machine.transition_to(CommandState.CASTING_AND_VALIDATING_INPUTS)
 
         if not self.validate_inputs():
@@ -194,6 +204,20 @@ class AsyncCommand(
 
         self._state_machine.transition_to(CommandState.EXECUTING)
         try:
+            # Execute before callbacks
+            if self._enhanced_callback_executor:
+                before_callbacks = self._enhanced_callback_executor._registry.get_callbacks(
+                    "before", CommandState.CASTING_AND_VALIDATING_INPUTS, CommandState.EXECUTING, "execute"
+                )
+                for callback in before_callbacks:
+                    result = callback(self)
+                    # Handle async callbacks
+                    if hasattr(result, '__await__'):
+                        await result
+                if self._errors.has_errors():
+                    self._state_machine.fail()
+                    return CommandOutcome.from_errors(*self._errors.all())
+
             # Call before_execute hook if defined
             if hasattr(self, 'before_execute') and callable(getattr(self, 'before_execute', None)):
                 before_method = getattr(self.__class__, 'before_execute', None)
@@ -212,6 +236,17 @@ class AsyncCommand(
                 # Only call if it's a user-defined method (not inherited from AsyncCommand base)
                 if after_method is not None and after_method is not AsyncCommand.after_execute:
                     self._result = await self.after_execute(self._result)
+
+            # Execute after callbacks
+            if self._enhanced_callback_executor:
+                after_callbacks = self._enhanced_callback_executor._registry.get_callbacks(
+                    "after", CommandState.CASTING_AND_VALIDATING_INPUTS, CommandState.EXECUTING, "execute"
+                )
+                for callback in after_callbacks:
+                    result = callback(self)
+                    # Handle async callbacks
+                    if hasattr(result, '__await__'):
+                        await result
         except Halt:
             self._state_machine.fail()
             return CommandOutcome.from_errors(*self._errors.all())

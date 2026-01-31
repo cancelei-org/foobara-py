@@ -50,36 +50,51 @@ class CreateUserWithHooks(Command[CreateUserInputs, User]):
     _before_called = False
     _after_called = False
 
-    def before_execute(self) -> None:
-        CreateUserWithHooks._before_called = True
-
-    def after_execute(self, result: User) -> User:
-        CreateUserWithHooks._after_called = True
-        return result
-
     def execute(self) -> User:
         return User(id=1, name=self.inputs.name, email=self.inputs.email)
+
+
+# Register callbacks using DSL
+def _before_hook(cmd):
+    CreateUserWithHooks._before_called = True
+
+def _after_hook(cmd):
+    CreateUserWithHooks._after_called = True
+
+CreateUserWithHooks.before_execute_transition(_before_hook)
+CreateUserWithHooks.after_execute_transition(_after_hook)
 
 
 class CreateUserWithBeforeError(Command[CreateUserInputs, User]):
     """Command that errors in before_execute"""
 
-    def before_execute(self) -> None:
-        self.add_runtime_error('unauthorized', 'Not authorized to create users')
-
     def execute(self) -> User:
         return User(id=1, name=self.inputs.name, email=self.inputs.email)
+
+
+# Register callback that adds error
+def _before_error(cmd):
+    cmd.add_runtime_error('unauthorized', 'Not authorized to create users')
+
+CreateUserWithBeforeError.before_execute_transition(_before_error)
 
 
 class CreateUserWithAfterTransform(Command[CreateUserInputs, User]):
     """Command that transforms result in after_execute"""
 
-    def after_execute(self, result: User) -> User:
-        # Transform: uppercase the name
-        return User(id=result.id, name=result.name.upper(), email=result.email)
-
     def execute(self) -> User:
         return User(id=1, name=self.inputs.name, email=self.inputs.email)
+
+
+# Register around callback that transforms result
+def _around_transform(cmd, proceed):
+    result = proceed()
+    if result:
+        # Transform: uppercase the name
+        return User(id=result.id, name=result.name.upper(), email=result.email)
+    return result
+
+CreateUserWithAfterTransform.around_execute_transition(_around_transform)
 
 
 class CommandWithPossibleErrors(Command[CreateUserInputs, User]):
@@ -274,7 +289,7 @@ class AsyncUser(BaseModel):
 
 
 class AsyncCommandWithHooks(AsyncCommand[AsyncCreateUserInputs, AsyncUser]):
-    """Async command with lifecycle hooks"""
+    """Async command with lifecycle hooks (uses old methods for now)"""
 
     _before_called = False
     _after_called = False

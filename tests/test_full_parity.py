@@ -22,10 +22,6 @@ from foobara_py.core.command import Command, AsyncCommand, command
 from foobara_py.core.outcome import CommandOutcome
 from foobara_py.core.errors import FoobaraError, ErrorCollection, Symbols
 from foobara_py.core.state_machine import CommandState, Halt
-from foobara_py.core.callbacks import (
-    CallbackPhase, before, after, around,
-    before_validate, after_execute
-)
 from foobara_py.core.transactions import TransactionContext, transaction
 from foobara_py.domain.domain import Domain, Organization, DomainDependencyError
 from foobara_py.persistence.entity import EntityBase, entity, load, LoadSpec
@@ -115,13 +111,15 @@ class TestCallbacks:
         callback_called = []
 
         class CallbackCommand(Command[CreateUserInputs, User]):
-            @before_validate()
-            def log_before_validate(self):
-                callback_called.append("before_validate")
-
             def execute(self) -> User:
                 callback_called.append("execute")
                 return User(id=1, name=self.inputs.name, email=self.inputs.email)
+
+        # Register callback using DSL
+        def log_before_validate(cmd):
+            callback_called.append("before_validate")
+
+        CallbackCommand.before_validate_transition(log_before_validate)
 
         outcome = CallbackCommand.run(name="John", email="john@example.com")
 
@@ -134,13 +132,15 @@ class TestCallbacks:
         callback_called = []
 
         class CallbackCommand(Command[CreateUserInputs, User]):
-            @after_execute()
-            def log_after_execute(self):
-                callback_called.append("after_execute")
-
             def execute(self) -> User:
                 callback_called.append("execute")
                 return User(id=1, name=self.inputs.name, email=self.inputs.email)
+
+        # Register callback using DSL
+        def log_after_execute(cmd):
+            callback_called.append("after_execute")
+
+        CallbackCommand.after_execute_transition(log_after_execute)
 
         outcome = CallbackCommand.run(name="John", email="john@example.com")
 
@@ -514,10 +514,6 @@ class TestFullIntegration:
         class CreateUserIntegration(Command[CreateUserInputs, User]):
             """Create a user with full validation"""
 
-            @before_validate()
-            def log_start(self):
-                executed_phases.append("before_validate")
-
             def validate(self):
                 executed_phases.append("validate")
                 if self.inputs.name == "admin":
@@ -536,9 +532,15 @@ class TestFullIntegration:
                     age=self.inputs.age
                 )
 
-            @after_execute()
-            def log_end(self):
-                executed_phases.append("after_execute")
+        # Register callbacks using DSL
+        def log_start(cmd):
+            executed_phases.append("before_validate")
+
+        def log_end(cmd):
+            executed_phases.append("after_execute")
+
+        CreateUserIntegration.before_validate_transition(log_start)
+        CreateUserIntegration.after_execute_transition(log_end)
 
         # Test successful execution
         outcome = CreateUserIntegration.run(
