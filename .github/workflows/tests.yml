@@ -27,15 +27,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # SSH debugging step - enable on failure or manual trigger
-    - name: Setup tmate session (on failure or manual trigger)
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ failure() || github.event.inputs.debug_enabled }}
-      timeout-minutes: 30
-      with:
-        limit-access-to-actor: true
-        sudo: false
-
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -109,6 +100,16 @@ jobs:
           grep -E "passed|failed|skipped" pytest.log | tail -1 >> $GITHUB_STEP_SUMMARY || echo "Test stats unavailable" >> $GITHUB_STEP_SUMMARY
         fi
 
+    # SSH debugging step - enable on failure or manual trigger
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      continue-on-error: true
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
+
   lint:
     runs-on: self-hosted
     timeout-minutes: 15
@@ -116,14 +117,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Setup tmate session (on failure or manual trigger)
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ failure() || github.event.inputs.debug_enabled }}
-      timeout-minutes: 30
-      with:
-        limit-access-to-actor: true
-        sudo: false
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -156,3 +149,13 @@ jobs:
         else
           echo "⚠️ MyPy not available" >> $GITHUB_STEP_SUMMARY
         fi
+
+    # SSH debugging step - enable on failure or manual trigger
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      continue-on-error: true
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
