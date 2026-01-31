@@ -317,17 +317,19 @@ class TestTimeoutHandling:
 
     @pytest.mark.asyncio
     async def test_timeout_with_asyncio(self):
-        """Test timeout handling with asyncio.timeout"""
+        """Test timeout handling with asyncio"""
         class SlowInputs(BaseModel):
             delay: float
 
         class SlowCommand(AsyncCommand[SlowInputs, str]):
             async def execute(self) -> str:
                 try:
-                    # Python 3.11+ syntax
-                    async with asyncio.timeout(0.1):
-                        await asyncio.sleep(self.inputs.delay)
-                        return "completed"
+                    # Use asyncio.wait_for for Python 3.10+ compatibility
+                    await asyncio.wait_for(
+                        asyncio.sleep(self.inputs.delay),
+                        timeout=0.1
+                    )
+                    return "completed"
                 except asyncio.TimeoutError:
                     self.add_runtime_error(
                         "timeout",
@@ -339,12 +341,10 @@ class TestTimeoutHandling:
         outcome = await SlowCommand.run(delay=0.01)
         assert outcome.is_success()
 
-        # Should timeout (if Python >= 3.11)
-        import sys
-        if sys.version_info >= (3, 11):
-            outcome = await SlowCommand.run(delay=1.0)
-            assert outcome.is_failure()
-            assert outcome.errors[0].symbol == "timeout"
+        # Should timeout
+        outcome = await SlowCommand.run(delay=1.0)
+        assert outcome.is_failure()
+        assert outcome.errors[0].symbol == "timeout"
 
 
 class TestBatchProcessing:
