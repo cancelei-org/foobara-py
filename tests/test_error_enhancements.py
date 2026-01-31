@@ -549,10 +549,10 @@ class TestBackwardCompatibility:
         collection = ErrorCollection()
         error = FoobaraError.data_error("test", [], "Test")
 
-        # Old methods should still work
-        collection.add_error(error)  # Old method name
+        # Use new methods
+        collection.add(error)
         assert collection.has_errors()
 
         collection2 = ErrorCollection()
-        collection2.add_errors(error)  # Old method name
+        collection2.add_all(error)
         assert collection2.count() == 1

@@ -252,10 +252,10 @@ class Agent:
         """
         if command_name not in self.commands:
             # Return a failure outcome
-            from foobara_py.core.errors import DataError
+            from foobara_py.core.errors import FoobaraError
 
             return CommandOutcome.from_errors(
-                DataError.runtime_error(
+                FoobaraError.runtime_error(
                     symbol="command_not_found",
                     message=f"Command '{command_name}' not found",
                 )

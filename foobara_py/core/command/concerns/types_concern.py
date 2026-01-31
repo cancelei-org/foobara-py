@@ -9,9 +9,11 @@ Handles:
 Pattern: Ruby Foobara's InputsType and ResultType concerns
 """
 
-from typing import Any, ClassVar, Optional, Type, get_args, get_origin
+from typing import Any, ClassVar, Optional, Type
 
 from pydantic import BaseModel
+
+from foobara_py.core.utils import extract_inputs_type, extract_result_type
 
 
 class TypesConcern:
@@ -37,21 +39,14 @@ class TypesConcern:
         if cls._cached_inputs_type is not None:
             return cls._cached_inputs_type
 
-        # Import Command here to avoid circular dependency
-        from foobara_py.core.command.base import Command
+        inputs_cls = extract_inputs_type(cls)
+        if inputs_cls is None or not (
+            isinstance(inputs_cls, type) and issubclass(inputs_cls, BaseModel)
+        ):
+            raise TypeError(f"Could not determine inputs type for {cls.__name__}")
 
-        # Extract from Generic parameters
-        for base in getattr(cls, "__orig_bases__", []):
-            origin = get_origin(base)
-            if origin is Command or (isinstance(origin, type) and issubclass(origin, Command)):
-                args = get_args(base)
-                if args and len(args) >= 1:
-                    inputs_cls = args[0]
-                    if isinstance(inputs_cls, type) and issubclass(inputs_cls, BaseModel):
-                        cls._cached_inputs_type = inputs_cls
-                        return inputs_cls
-
-        raise TypeError(f"Could not determine inputs type for {cls.__name__}")
+        cls._cached_inputs_type = inputs_cls
+        return inputs_cls
 
     @classmethod
     def result_type(cls) -> Type[Any]:
@@ -66,18 +61,12 @@ class TypesConcern:
         if cls._cached_result_type is not None:
             return cls._cached_result_type
 
-        from foobara_py.core.command.base import Command
+        result_cls = extract_result_type(cls)
+        if result_cls is None:
+            result_cls = Any
 
-        for base in getattr(cls, "__orig_bases__", []):
-            origin = get_origin(base)
-            if origin is Command or (isinstance(origin, type) and issubclass(origin, Command)):
-                args = get_args(base)
-                if args and len(args) >= 2:
-                    cls._cached_result_type = args[1]
-                    return args[1]
-
-        cls._cached_result_type = Any
-        return Any
+        cls._cached_result_type = result_cls
+        return result_cls
 
     @classmethod
     def inputs_schema(cls) -> dict:

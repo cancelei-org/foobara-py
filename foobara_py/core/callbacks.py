@@ -59,12 +59,14 @@ class CallbackRegistry:
     Uses tuple storage for immutability and cache-friendliness.
     """
 
-    __slots__ = ("_callbacks",)
+    __slots__ = ("_callbacks", "_compiled_chains", "_has_any")
 
     def __init__(self):
         self._callbacks: Dict[CallbackPhase, Dict[CallbackType, List[Callback]]] = {
             phase: {ct: [] for ct in CallbackType} for phase in CallbackPhase
         }
+        self._compiled_chains: Optional[Dict[CallbackPhase, Dict[str, Any]]] = None
+        self._has_any: Optional[bool] = None
 
     def register(
         self,
@@ -80,6 +82,9 @@ class CallbackRegistry:
         self._callbacks[phase][callback_type].append(callback)
         # Keep sorted by priority
         self._callbacks[phase][callback_type].sort()
+        # Invalidate cache when callbacks are registered
+        self._has_any = None
+        self._compiled_chains = None
 
     def get_callbacks(self, phase: CallbackPhase, callback_type: CallbackType) -> List[Callback]:
         """Get callbacks for phase and type"""
@@ -104,6 +109,33 @@ class CallbackRegistry:
                 new_registry._callbacks[phase][ct] = list(self._callbacks[phase][ct])
         return new_registry
 
+    def has_any_callbacks(self) -> bool:
+        """Check if any callbacks are registered (cached for performance)"""
+        if self._has_any is None:
+            self._has_any = False
+            for phase in CallbackPhase:
+                for ct in CallbackType:
+                    if self._callbacks[phase][ct]:
+                        self._has_any = True
+                        break
+                if self._has_any:
+                    break
+        return self._has_any
+
+    def precompile_chains(self) -> None:
+        """Pre-compile callback chains for faster execution"""
+        if self._compiled_chains is not None:
+            return  # Already compiled
+
+        self._compiled_chains = {}
+        for phase in CallbackPhase:
+            # Pre-compile which callback types have callbacks for this phase
+            self._compiled_chains[phase] = {
+                'has_before': bool(self._callbacks[phase][CallbackType.BEFORE]),
+                'has_after': bool(self._callbacks[phase][CallbackType.AFTER]),
+                'has_around': bool(self._callbacks[phase][CallbackType.AROUND]),
+            }
+
 
 class CallbackExecutor:
     """
@@ -127,32 +159,47 @@ class CallbackExecutor:
         3. Run core action
         4. Run after callbacks
         """
+        # Fast path: Check if phase has any callbacks using pre-compiled chains
+        if self._registry._compiled_chains:
+            phase_info = self._registry._compiled_chains.get(phase, {})
+            if not (phase_info.get('has_before') or phase_info.get('has_after') or phase_info.get('has_around')):
+                # No callbacks for this phase, execute directly
+                return core_action()
+
         # Before callbacks
-        for callback in self._registry.get_callbacks(phase, CallbackType.BEFORE):
-            callback.handler(self._command)
+        before_callbacks = self._registry.get_callbacks(phase, CallbackType.BEFORE)
+        if before_callbacks:
+            for callback in before_callbacks:
+                callback.handler(self._command)
 
         # Build around chain
         around_callbacks = self._registry.get_callbacks(phase, CallbackType.AROUND)
 
-        def build_chain(callbacks: List[Callback], action: Callable) -> Callable:
-            """Build nested around callback chain"""
-            if not callbacks:
-                return action
+        if around_callbacks:
+            def build_chain(callbacks: List[Callback], action: Callable) -> Callable:
+                """Build nested around callback chain"""
+                if not callbacks:
+                    return action
 
-            def wrapped():
-                return callbacks[0].handler(
-                    self._command, lambda: build_chain(callbacks[1:], action)()
-                )
+                def wrapped():
+                    return callbacks[0].handler(
+                        self._command, lambda: build_chain(callbacks[1:], action)()
+                    )
 
-            return wrapped
+                return wrapped
 
-        # Execute with around callbacks
-        chained_action = build_chain(around_callbacks, core_action)
-        result = chained_action()
+            # Execute with around callbacks
+            chained_action = build_chain(around_callbacks, core_action)
+            result = chained_action()
+        else:
+            # No around callbacks, execute directly
+            result = core_action()
 
         # After callbacks
-        for callback in self._registry.get_callbacks(phase, CallbackType.AFTER):
-            callback.handler(self._command)
+        after_callbacks = self._registry.get_callbacks(phase, CallbackType.AFTER)
+        if after_callbacks:
+            for callback in after_callbacks:
+                callback.handler(self._command)
 
         return result
 

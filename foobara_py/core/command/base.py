@@ -77,6 +77,31 @@ class CommandMeta(ABCMeta):
         cls._cached_inputs_type = None
         cls._cached_result_type = None
 
+        # Detect hook overrides for performance optimization
+        # Check if before_execute is overridden from base ExecutionConcern
+        from foobara_py.core.command.concerns.execution_concern import ExecutionConcern
+        cls._has_before_execute = (
+            'before_execute' in namespace or
+            any(hasattr(base, 'before_execute') and
+                getattr(base, 'before_execute', None) is not ExecutionConcern.before_execute
+                for base in bases if base is not ExecutionConcern)
+        )
+
+        # Check if after_execute is overridden from base ExecutionConcern
+        cls._has_after_execute = (
+            'after_execute' in namespace or
+            any(hasattr(base, 'after_execute') and
+                getattr(base, 'after_execute', None) is not ExecutionConcern.after_execute
+                for base in bases if base is not ExecutionConcern)
+        )
+
+        # Check if any callbacks are registered
+        cls._has_callbacks = cls._callback_registry and cls._callback_registry.has_any_callbacks()
+
+        # Pre-compile callback chains for faster execution (cache at class level)
+        if cls._has_callbacks:
+            cls._callback_registry.precompile_chains()
+
         return cls
 
 
@@ -146,6 +171,9 @@ class Command(
     _callback_registry: ClassVar[Optional[CallbackRegistry]] = None
     _cached_inputs_type: ClassVar[Optional[type[BaseModel]]] = None
     _cached_result_type: ClassVar[Optional[type]] = None
+    _has_before_execute: ClassVar[bool] = False
+    _has_after_execute: ClassVar[bool] = False
+    _has_callbacks: ClassVar[bool] = False
 
     # Instance attributes (using __slots__ for performance)
     __slots__ = (

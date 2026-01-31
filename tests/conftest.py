@@ -28,7 +28,7 @@ from typing import Generator, Optional, Any, Dict, List
 from pathlib import Path
 
 from foobara_py import Domain
-from foobara_py.core.registry import Registry
+from foobara_py.core.registry import CommandRegistry
 from foobara_py.persistence import (
     EntityBase,
     Repository,
@@ -130,9 +130,9 @@ def isolated_registry():
 
     Use when you need explicit control over registry lifecycle.
     """
-    registry = Registry()
+    registry = CommandRegistry()
     yield registry
-    registry.clear()
+    # CommandRegistry doesn't have a clear() method, but the instance will be discarded
 
 
 # ============================================================================

@@ -19,6 +19,7 @@ class NamingConcern:
     _domain: ClassVar[Optional[str]] = None
     _organization: ClassVar[Optional[str]] = None
     _description: ClassVar[Optional[str]] = None
+    _cached_full_symbol: ClassVar[Optional[str]] = None
 
     @classmethod
     def full_name(cls) -> str:
@@ -41,12 +42,22 @@ class NamingConcern:
     @classmethod
     def full_command_symbol(cls) -> str:
         """
-        Get command symbol (snake_case full name).
+        Get command symbol (snake_case full name) with lazy computation and caching.
+
+        The symbol is computed once and cached for subsequent calls,
+        improving performance for repeated access.
 
         Returns:
             Snake case identifier (e.g., "my_org_users_create_user")
         """
-        return cls.full_name().replace("::", "_").lower()
+        # Return cached value if available
+        if cls._cached_full_symbol is not None:
+            return cls._cached_full_symbol
+
+        # Compute and cache the symbol
+        cls._cached_full_symbol = cls.full_name().replace("::", "_").lower()
+
+        return cls._cached_full_symbol
 
     @classmethod
     def description(cls) -> str:

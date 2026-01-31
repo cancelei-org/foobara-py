@@ -114,17 +114,11 @@ class StateConcern:
                 # Phase 6: Execute
                 self._state_machine.transition_to(CommandState.EXECUTING)
                 try:
-                    # Call before_execute hook if defined
-                    if hasattr(self, 'before_execute') and callable(getattr(self, 'before_execute', None)):
-                        # Import Command here to avoid circular dependency
-                        from foobara_py.core.command.base import Command
-
-                        before_method = getattr(self.__class__, 'before_execute', None)
-                        # Only call if it's a user-defined method (not inherited from Command base)
-                        if before_method is not None and before_method is not Command.before_execute:
-                            self.before_execute()
-                            if self._errors.has_errors():
-                                return self._fail()
+                    # Call before_execute hook if defined (optimized with single boolean check)
+                    if self.__class__._has_before_execute:
+                        self.before_execute()
+                        if self._errors.has_errors():
+                            return self._fail()
 
                     if self._callback_executor:
                         self._result = self._callback_executor.execute_phase(
@@ -133,14 +127,9 @@ class StateConcern:
                     else:
                         self._result = self.execute()
 
-                    # Call after_execute hook if defined
-                    if hasattr(self, 'after_execute') and callable(getattr(self, 'after_execute', None)):
-                        from foobara_py.core.command.base import Command
-
-                        after_method = getattr(self.__class__, 'after_execute', None)
-                        # Only call if it's a user-defined method (not inherited from Command base)
-                        if after_method is not None and after_method is not Command.after_execute:
-                            self._result = self.after_execute(self._result)
+                    # Call after_execute hook if defined (optimized with single boolean check)
+                    if self.__class__._has_after_execute:
+                        self._result = self.after_execute(self._result)
                 except Halt:
                     return self._fail()
                 except Exception as e:

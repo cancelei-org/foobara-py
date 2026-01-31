@@ -589,8 +589,6 @@ def entity(primary_key: str = "id", repository: "RepositoryProtocol" = None) -> 
 
 # ==================== Entity for Generics ====================
 
-Entity = EntityBase  # Alias for backward compatibility
-
 
 # ==================== Model (Value Objects) ====================
 
@@ -691,3 +689,7 @@ class MutableModel(BaseModel):
     def from_dict(cls, data: Dict[str, Any]) -> "MutableModel":
         """Create model from dictionary"""
         return cls(**data)
+
+
+# Backward compatibility alias
+Entity = EntityBase

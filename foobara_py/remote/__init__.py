@@ -50,7 +50,6 @@ from foobara_py.remote.importer import (
 )
 from foobara_py.remote.remote_command import (
     AsyncRemoteCommand,
-    ConnectionError,  # Alias for backward compatibility
     RemoteCommand,
     RemoteCommandError,
     RemoteConnectionError,
@@ -62,7 +61,6 @@ __all__ = [
     "AsyncRemoteCommand",
     "RemoteCommandError",
     "RemoteConnectionError",
-    "ConnectionError",  # Alias
     # Importer
     "RemoteImporter",
     "RemoteNamespace",

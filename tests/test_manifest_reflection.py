@@ -146,7 +146,7 @@ class TestDomainManifestCounting:
     def test_count_entities_separately(self):
         """Test that entities are counted separately from types"""
         try:
-            from foobara_py.persistence import Entity
+            from foobara_py.persistence import EntityBase
 
             domain = Domain("TestDomain")
 
@@ -157,7 +157,7 @@ class TestDomainManifestCounting:
             domain.register_type("ProductType", ProductType)
 
             # Register an entity
-            class User(Entity):
+            class User(EntityBase):
                 __tablename__ = "users"
                 name: str
 
@@ -171,7 +171,7 @@ class TestDomainManifestCounting:
             assert manifest.entity_count == 1
 
         except ImportError:
-            pytest.skip("Entity not available")
+            pytest.skip("EntityBase not available")
 
     def test_count_commands(self):
         """Test that commands are counted correctly"""

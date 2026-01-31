@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel, Field
 from foobara_py.core.command import Command, command, SimpleCommand, simple_command
-from foobara_py.core.errors import DataError
+from foobara_py.core.errors import FoobaraError
 
 
 class AddInputs(BaseModel):

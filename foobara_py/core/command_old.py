@@ -1351,7 +1351,7 @@ class SimpleCommand(Generic[ResultT]):
         """Run the command with given inputs"""
         from pydantic import ValidationError
 
-        from foobara_py.core.errors import DataError, ErrorCollection
+        from foobara_py.core.errors import FoobaraError, ErrorCollection
 
         errors = ErrorCollection()
 
@@ -1361,8 +1361,8 @@ class SimpleCommand(Generic[ResultT]):
         except ValidationError as e:
             for error in e.errors():
                 path = [str(p) for p in error["loc"]]
-                errors.add_error(
-                    DataError(
+                errors.add(
+                    FoobaraError(
                         category="data", symbol=error["type"], path=path, message=error["msg"]
                     )
                 )
@@ -1374,7 +1374,7 @@ class SimpleCommand(Generic[ResultT]):
             return CommandOutcome.from_result(result)
         except Exception as e:
             return CommandOutcome.from_errors(
-                DataError.runtime_error(symbol="execution_error", message=str(e))
+                FoobaraError.runtime_error(symbol="execution_error", message=str(e))
             )
 
     def __call__(self, **inputs) -> ResultT:
@@ -1439,7 +1439,7 @@ class AsyncSimpleCommand(Generic[ResultT]):
         """Run the async command with given inputs"""
         from pydantic import ValidationError
 
-        from foobara_py.core.errors import DataError, ErrorCollection
+        from foobara_py.core.errors import FoobaraError, ErrorCollection
 
         errors = ErrorCollection()
 
@@ -1449,8 +1449,8 @@ class AsyncSimpleCommand(Generic[ResultT]):
         except ValidationError as e:
             for error in e.errors():
                 path = [str(p) for p in error["loc"]]
-                errors.add_error(
-                    DataError(
+                errors.add(
+                    FoobaraError(
                         category="data", symbol=error["type"], path=path, message=error["msg"]
                     )
                 )
@@ -1462,7 +1462,7 @@ class AsyncSimpleCommand(Generic[ResultT]):
             return CommandOutcome.from_result(result)
         except Exception as e:
             return CommandOutcome.from_errors(
-                DataError.runtime_error(symbol="execution_error", message=str(e))
+                FoobaraError.runtime_error(symbol="execution_error", message=str(e))
             )
 
     async def __call__(self, **inputs) -> ResultT:

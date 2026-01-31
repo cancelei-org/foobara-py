@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from foobara_py.core.command import (
     AsyncCommand, async_command, AsyncSimpleCommand, async_simple_command
 )
-from foobara_py.core.errors import DataError
+from foobara_py.core.errors import FoobaraError
 
 
 class AddInputs(BaseModel):

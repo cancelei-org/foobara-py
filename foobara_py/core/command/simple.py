@@ -10,24 +10,15 @@ from typing import Any, Generic, TypeVar, get_type_hints
 
 from pydantic import ValidationError, create_model
 
-from foobara_py.core.errors import DataError, ErrorCollection
+from foobara_py.core.command.concerns.simple_command_concern import SimpleCommandConcern
+from foobara_py.core.errors import FoobaraError, ErrorCollection
 from foobara_py.core.outcome import CommandOutcome
 
 ResultT = TypeVar("ResultT")
 
 
-class SimpleCommand(Generic[ResultT]):
-    """
-    Simplified command for functions (decorator-based).
-
-    Usage:
-        @simple_command
-        def add_numbers(a: int, b: int) -> int:
-            return a + b
-
-        outcome = add_numbers.run(a=1, b=2)
-        result = outcome.unwrap()  # 3
-    """
+class _SimpleCommandBase(SimpleCommandConcern[Any, ResultT], Generic[ResultT]):
+    """Base class for simple commands with shared initialization logic."""
 
     def __init__(self, func):
         self.func = func
@@ -54,30 +45,55 @@ class SimpleCommand(Generic[ResultT]):
         """Get JSON Schema for inputs"""
         return self._inputs_model.model_json_schema()
 
-    def run(self, **inputs) -> CommandOutcome[ResultT]:
-        """Run the command with given inputs"""
+    def _validate_inputs(self, inputs: dict) -> tuple[Any, ErrorCollection]:
+        """Validate inputs and return (validated, errors)"""
         errors = ErrorCollection()
+        validated = None
 
-        # Validate inputs
         try:
             validated = self._inputs_model(**inputs)
         except ValidationError as e:
             for error in e.errors():
                 path = [str(p) for p in error["loc"]]
-                errors.add_error(
-                    DataError(
+                errors.add(
+                    FoobaraError(
                         category="data", symbol=error["type"], path=path, message=error["msg"]
                     )
                 )
+
+        return validated, errors
+
+
+class SimpleCommand(_SimpleCommandBase[ResultT]):
+    """
+    Simplified command for functions (decorator-based).
+
+    Usage:
+        @simple_command
+        def add_numbers(a: int, b: int) -> int:
+            return a + b
+
+        outcome = add_numbers.run(a=1, b=2)
+        result = outcome.unwrap()  # 3
+    """
+
+    def run(self, **inputs) -> CommandOutcome[ResultT]:
+        """Run the command with given inputs"""
+        validated, errors = self._validate_inputs(inputs)
+
+        if errors.all():
             return CommandOutcome.from_errors(*errors.all())
 
         # Execute function
         try:
+            self.before_execute(validated)
             result = self.func(**validated.model_dump())
+            result = self.after_execute(result)
             return CommandOutcome.from_result(result)
         except Exception as e:
+            self.on_error(e)
             return CommandOutcome.from_errors(
-                DataError.runtime_error(symbol="execution_error", message=str(e))
+                FoobaraError.runtime_error(symbol="execution_error", message=str(e))
             )
 
     def __call__(self, **inputs) -> ResultT:
@@ -91,7 +107,7 @@ def simple_command(func):
     return SimpleCommand(func)
 
 
-class AsyncSimpleCommand(Generic[ResultT]):
+class AsyncSimpleCommand(_SimpleCommandBase[ResultT]):
     """
     Simplified async command for async functions (decorator-based).
 
@@ -112,54 +128,25 @@ class AsyncSimpleCommand(Generic[ResultT]):
                 f"async_simple_command requires an async function, "
                 f"got {type(func).__name__}. Use @simple_command for sync functions."
             )
-        self.func = func
-        self.name = func.__name__
-        self.__doc__ = func.__doc__
-
-        # Extract type hints
-        self._hints = get_type_hints(func)
-        self._return_type = self._hints.pop("return", Any)
-
-        # Build inputs model dynamically
-        sig = inspect.signature(func)
-        fields = {}
-        for param_name, param in sig.parameters.items():
-            param_type = self._hints.get(param_name, Any)
-            if param.default is inspect.Parameter.empty:
-                fields[param_name] = (param_type, ...)
-            else:
-                fields[param_name] = (param_type, param.default)
-
-        self._inputs_model = create_model(f"{func.__name__}Inputs", **fields)
-
-    def inputs_schema(self) -> dict:
-        """Get JSON Schema for inputs"""
-        return self._inputs_model.model_json_schema()
+        super().__init__(func)
 
     async def run(self, **inputs) -> CommandOutcome[ResultT]:
         """Run the async command with given inputs"""
-        errors = ErrorCollection()
+        validated, errors = self._validate_inputs(inputs)
 
-        # Validate inputs
-        try:
-            validated = self._inputs_model(**inputs)
-        except ValidationError as e:
-            for error in e.errors():
-                path = [str(p) for p in error["loc"]]
-                errors.add_error(
-                    DataError(
-                        category="data", symbol=error["type"], path=path, message=error["msg"]
-                    )
-                )
+        if errors.all():
             return CommandOutcome.from_errors(*errors.all())
 
         # Execute async function
         try:
+            self.before_execute(validated)
             result = await self.func(**validated.model_dump())
+            result = self.after_execute(result)
             return CommandOutcome.from_result(result)
         except Exception as e:
+            self.on_error(e)
             return CommandOutcome.from_errors(
-                DataError.runtime_error(symbol="execution_error", message=str(e))
+                FoobaraError.runtime_error(symbol="execution_error", message=str(e))
             )
 
     async def __call__(self, **inputs) -> ResultT:

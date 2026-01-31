@@ -1,6 +1,6 @@
 [project]
 name = "foobara-py"
-version = "0.2.0"
+version = "0.3.0"
 description = "Python implementation of Foobara command pattern with MCP integration"
 readme = "README.md"
 license = {text = "MPL-2.0"}

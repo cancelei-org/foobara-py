@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from foobara_py import Command, Domain, Outcome, command
-from foobara_py.core import CommandOutcome, DataError
+from foobara_py.core import CommandOutcome, FoobaraError
 from foobara_py.connectors import MCPConnector
 
 

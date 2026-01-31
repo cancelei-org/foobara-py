@@ -91,6 +91,9 @@ class TypeProcessor(ABC, Generic[T]):
     with additional features like inheritance and composition.
     """
 
+    # Class-level processor cache for lazy loading
+    _processor_cache: Dict[str, "TypeProcessor"] = {}
+
     @abstractmethod
     def process(self, value: Any) -> T:
         """
@@ -111,6 +114,21 @@ class TypeProcessor(ABC, Generic[T]):
     def __call__(self, value: Any) -> T:
         """Allow processor to be called as function"""
         return self.process(value)
+
+    @classmethod
+    def get_processor(cls, processor_name: str) -> Optional["TypeProcessor"]:
+        """
+        Get a cached processor instance by name.
+
+        Implements lazy processor loading with caching for improved performance.
+
+        Args:
+            processor_name: Name of the processor class
+
+        Returns:
+            Processor instance if found in cache, None otherwise
+        """
+        return cls._processor_cache.get(processor_name)
 
 
 class Caster(TypeProcessor[T]):

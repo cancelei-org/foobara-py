@@ -6,7 +6,7 @@ Uses simplified execution flow (no transactions by default).
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, List, Optional, Tuple, Type, TypeVar, get_args, get_origin
+from typing import Any, ClassVar, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
 
@@ -17,12 +17,28 @@ from foobara_py.core.state_machine import CommandState, CommandStateMachine, Hal
 from foobara_py.core.transactions import TransactionConfig
 
 from .base import CommandMeta
+from .concerns import (
+    ErrorsConcern,
+    InputsConcern,
+    MetadataConcern,
+    NamingConcern,
+    TypesConcern,
+)
 
 InputT = TypeVar("InputT", bound=BaseModel)
 ResultT = TypeVar("ResultT")
 
 
-class AsyncCommand(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
+class AsyncCommand(
+    TypesConcern,
+    NamingConcern,
+    ErrorsConcern,
+    InputsConcern,
+    MetadataConcern,
+    ABC,
+    Generic[InputT, ResultT],
+    metaclass=CommandMeta,
+):
     """
     Async version of Command for I/O-bound operations.
 
@@ -73,18 +89,16 @@ class AsyncCommand(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
         self._subcommand_runtime_path: Tuple[str, ...] = _runtime_path
         self._loaded_records: Dict[str, Any] = {}
 
-    @property
-    def inputs(self) -> InputT:
-        if self._inputs is None:
-            raise ValueError("Inputs not yet validated")
-        return self._inputs
-
-    @property
-    def errors(self) -> ErrorCollection:
-        return self._errors
+    # inputs property and errors property inherited from InputsConcern and ErrorsConcern
+    # inputs_schema() inherited from TypesConcern
 
     @classmethod
     def inputs_type(cls) -> Type[InputT]:
+        """
+        Get the inputs Pydantic model class (cached).
+
+        Overrides TypesConcern to check for AsyncCommand instead of Command.
+        """
         if cls._cached_inputs_type is not None:
             return cls._cached_inputs_type
 
@@ -104,6 +118,11 @@ class AsyncCommand(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
 
     @classmethod
     def result_type(cls) -> Type[ResultT]:
+        """
+        Get the result type (cached).
+
+        Overrides TypesConcern to check for AsyncCommand instead of Command.
+        """
         if cls._cached_result_type is not None:
             return cls._cached_result_type
 
@@ -120,50 +139,17 @@ class AsyncCommand(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
         cls._cached_result_type = Any
         return Any
 
-    @classmethod
-    def inputs_schema(cls) -> dict:
-        return cls.inputs_type().model_json_schema()
+    # full_name() and description() inherited from NamingConcern
 
-    @classmethod
-    def full_name(cls) -> str:
-        parts = []
-        if cls._organization:
-            parts.append(cls._organization)
-        if cls._domain:
-            parts.append(cls._domain)
-        parts.append(cls.__name__)
-        return "::".join(parts)
-
-    @classmethod
-    def description(cls) -> str:
-        if cls._description:
-            return cls._description
-        return cls.__doc__ or ""
-
-    @classmethod
-    def possible_errors(cls) -> List[Dict[str, Any]]:
-        """Get all declared possible errors for this command."""
-        return [
-            {"symbol": symbol, "message": details.get("message")}
-            for symbol, details in cls._possible_errors.items()
-        ]
-
-    def add_error(self, error: FoobaraError) -> None:
-        if self._subcommand_runtime_path:
-            error = error.with_runtime_path_prefix(*self._subcommand_runtime_path)
-        self._errors.add(error)
-
-    def add_input_error(
-        self, path: Union[List[str], Tuple[str, ...]], symbol: str, message: str, **context
-    ) -> None:
-        self.add_error(FoobaraError.data_error(symbol, path, message, **context))
-
-    def add_runtime_error(self, symbol: str, message: str, halt: bool = True, **context) -> None:
-        self.add_error(FoobaraError.runtime_error(symbol, message, **context))
-        if halt:
-            raise Halt()
+    # possible_errors(), add_error(), add_input_error(), add_runtime_error() inherited from ErrorsConcern
 
     def validate_inputs(self) -> bool:
+        """
+        Validate inputs and return success status.
+
+        Returns:
+            True if validation succeeded, False if errors occurred.
+        """
         try:
             inputs_class = self.inputs_type()
             self._inputs = inputs_class(**self._raw_inputs)
@@ -250,23 +236,13 @@ class AsyncCommand(ABC, Generic[InputT, ResultT], metaclass=CommandMeta):
 
     @classmethod
     def manifest(cls) -> dict:
-        return {
-            "name": cls.full_name(),
-            "description": cls.description(),
-            "organization": cls._organization,
-            "domain": cls._domain,
-            "inputs_type": {"type": "attributes", "schema": cls.inputs_schema()},
-            "result_type": {"type": str(cls.result_type())},
-            "async": True,
-        }
+        """
+        Generate command manifest with async flag.
 
-    @classmethod
-    def reflect(cls) -> "CommandManifest":
-        """Get comprehensive reflection metadata for this command."""
-        from foobara_py.manifest.command_manifest import CommandManifest
+        Extends MetadataConcern.manifest() to add async=True flag.
+        """
+        manifest = super().manifest()
+        manifest["async"] = True
+        return manifest
 
-        return CommandManifest.from_command(cls)
-
-
-# Add missing import
-from typing import Union
+    # reflect() inherited from MetadataConcern

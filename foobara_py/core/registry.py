@@ -37,11 +37,17 @@ class CommandRegistry:
         self.name = name
         self._commands: Dict[str, Type[Command]] = {}
         self._domains: Dict[str, "DomainRegistry"] = {}
+        self._lookup_cache: Dict[str, Optional[Type[Command]]] = {}
+        self._schema_cache: Dict[str, dict] = {}
 
     def register(self, command_class: Type[Command]) -> None:
         """Register a command class"""
         name = command_class.full_name()
         self._commands[name] = command_class
+
+        # Invalidate caches when registering new command
+        self._lookup_cache.clear()
+        self._schema_cache.clear()
 
         # Also register in domain if set
         domain = command_class._domain
@@ -53,6 +59,30 @@ class CommandRegistry:
     def get(self, name: str) -> Optional[Type[Command]]:
         """Get command by full name"""
         return self._commands.get(name)
+
+    def find_command(self, name: str) -> Optional[Type[Command]]:
+        """
+        Find command by name with caching.
+
+        Checks cache first for improved performance on repeated lookups.
+
+        Args:
+            name: Full command name to search for
+
+        Returns:
+            Command class if found, None otherwise
+        """
+        # Check cache first
+        if name in self._lookup_cache:
+            return self._lookup_cache[name]
+
+        # Perform lookup
+        result = self._commands.get(name)
+
+        # Cache result (even if None)
+        self._lookup_cache[name] = result
+
+        return result
 
     def execute(self, name: str, inputs: dict) -> Any:
         """Execute command by name with inputs"""
@@ -90,6 +120,16 @@ class CommandRegistry:
             "domains": {name: domain.get_manifest() for name, domain in self._domains.items()},
             "commands": {name: cmd.manifest() for name, cmd in self._commands.items()},
         }
+
+    def invalidate_cache(self) -> None:
+        """
+        Invalidate all caches.
+
+        Clears lookup and schema caches. Call this when commands
+        are modified externally or cache consistency is uncertain.
+        """
+        self._lookup_cache.clear()
+        self._schema_cache.clear()
 
 
 class DomainRegistry:
@@ -188,5 +228,3 @@ def register(command_class: Type[Command]) -> Type[Command]:
     return command_class
 
 
-# Backward compatibility alias
-Registry = CommandRegistry

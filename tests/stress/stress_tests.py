@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from foobara_py import Command, AsyncCommand, CommandOutcome
 from foobara_py.core.errors import ErrorCollection, FoobaraError
-from foobara_py.persistence import Entity, InMemoryRepository, entity
+from foobara_py.persistence import EntityBase, InMemoryRepository, entity
 from foobara_py.domain import Domain
 
 
@@ -528,7 +528,7 @@ def test_concern_architecture():
 # ==================== Test 5: Integration Tests ====================
 
 @entity(primary_key='id')
-class User(Entity):
+class User(EntityBase):
     """User entity for integration testing"""
     id: Optional[int] = None
     name: str

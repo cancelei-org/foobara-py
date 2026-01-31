@@ -15,6 +15,7 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from foobara_py.core.errors import FoobaraError
+from foobara_py.core.utils import validate_with_model
 
 InputT = TypeVar("InputT", bound=BaseModel)
 
@@ -57,8 +58,7 @@ class InputsConcern(Generic[InputT]):
             Override inputs_type() to customize the validation model.
         """
         try:
-            inputs_class = self.inputs_type()
-            self._inputs = inputs_class(**self._raw_inputs)
+            self._inputs = validate_with_model(self.inputs_type(), self._raw_inputs)
         except ValidationError as e:
             for error in e.errors():
                 path = tuple(str(p) for p in error["loc"])

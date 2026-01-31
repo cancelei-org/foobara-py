@@ -22,9 +22,11 @@ Usage:
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, get_args, get_origin
+from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel
+
+from foobara_py.core.utils import extract_generic_types
 
 FromT = TypeVar("FromT")
 ToT = TypeVar("ToT")
@@ -99,17 +101,12 @@ class DomainMapper(ABC, Generic[FromT, ToT]):
         if cls._cached_from_type is not None:
             return cls._cached_from_type
 
-        for base in getattr(cls, "__orig_bases__", []):
-            origin = get_origin(base)
-            if origin is DomainMapper or (
-                isinstance(origin, type) and issubclass(origin, DomainMapper)
-            ):
-                args = get_args(base)
-                if args and len(args) >= 1:
-                    cls._cached_from_type = args[0]
-                    return args[0]
+        types = extract_generic_types(cls)
+        if not types or len(types) < 1:
+            raise TypeError(f"Could not determine from_type for {cls.__name__}")
 
-        raise TypeError(f"Could not determine from_type for {cls.__name__}")
+        cls._cached_from_type = types[0]
+        return types[0]
 
     @classmethod
     def to_type(cls) -> Type[ToT]:
@@ -117,17 +114,12 @@ class DomainMapper(ABC, Generic[FromT, ToT]):
         if cls._cached_to_type is not None:
             return cls._cached_to_type
 
-        for base in getattr(cls, "__orig_bases__", []):
-            origin = get_origin(base)
-            if origin is DomainMapper or (
-                isinstance(origin, type) and issubclass(origin, DomainMapper)
-            ):
-                args = get_args(base)
-                if args and len(args) >= 2:
-                    cls._cached_to_type = args[1]
-                    return args[1]
+        types = extract_generic_types(cls)
+        if not types or len(types) < 2:
+            raise TypeError(f"Could not determine to_type for {cls.__name__}")
 
-        raise TypeError(f"Could not determine to_type for {cls.__name__}")
+        cls._cached_to_type = types[1]
+        return types[1]
 
     # ==================== Type Matching ====================
 

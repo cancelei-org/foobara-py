@@ -38,8 +38,6 @@ class JsonRpcErrorCode(IntEnum):
     NOT_FOUND = 404
 
 
-# Backward compatibility alias (V1 used JsonRpcError, V2 uses JsonRpcErrorCode)
-JsonRpcError = JsonRpcErrorCode
 
 
 @dataclass(slots=True)
