@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     runs-on: self-hosted
-    timeout-minutes: 30  # Prevent hanging jobs
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -27,11 +27,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+    - name: Setup Python via mise
+      run: |
+        mise use python@${{ matrix.python-version }}
+        mise exec -- python --version
+        echo "Python location: $(which python)"
+        python --version
 
     - name: Check PostgreSQL availability
       id: postgres-check
@@ -118,11 +119,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: 'pip'
+    - name: Setup Python via mise
+      run: |
+        mise use python@3.12
+        python --version
 
     - name: Install dependencies
       run: |
