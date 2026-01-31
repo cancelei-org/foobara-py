@@ -18,16 +18,61 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import (
     Any,
+    Callable,
+    Dict,
     Generic,
+    List,
+    Literal,
     Optional,
+    Protocol,
+    Set,
+    Type,
     TypeVar,
+    Union,
+    runtime_checkable,
 )
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
 
 T = TypeVar("T")
 S = TypeVar("S")
+ProcessorValue = TypeVar("ProcessorValue")
+
+
+# =============================================================================
+# Type Processor Protocols
+# =============================================================================
+
+
+@runtime_checkable
+class ProcessorProtocol(Protocol[T]):
+    """
+    Protocol for type processors.
+
+    Any class implementing a process method that takes Any and returns T
+    can be used as a processor. This enables duck typing for custom processors.
+
+    Example:
+        class MyCustomProcessor:
+            def process(self, value: Any) -> str:
+                return str(value).upper()
+
+        # Automatically works with FoobaraType without inheritance
+        custom_type = FoobaraType(
+            name="upper_string",
+            python_type=str,
+            casters=[MyCustomProcessor()]
+        )
+    """
+
+    def process(self, value: Any) -> T:
+        """Process a value and return transformed result."""
+        ...
+
+    def __call__(self, value: Any) -> T:
+        """Allow processor to be called as function."""
+        ...
 
 
 # =============================================================================
@@ -41,6 +86,9 @@ class TypeProcessor(ABC, Generic[T]):
 
     Processors transform or validate values during type processing.
     They form a pipeline that processes values in sequence.
+
+    This class provides a concrete implementation of ProcessorProtocol
+    with additional features like inheritance and composition.
     """
 
     @abstractmethod
@@ -259,9 +307,26 @@ class UUIDCaster(Caster[UUID]):
 
 
 class ListCaster(Caster[list]):
-    """Cast values to list"""
+    """
+    Cast values to list with optional element processing.
 
-    def __init__(self, element_caster: Caster | None = None):
+    Features:
+    - Converts tuples, sets, frozensets to lists
+    - Splits comma-separated strings
+    - Wraps single values in lists
+    - Optionally processes each element with element_caster
+
+    Example:
+        # Simple list casting
+        caster = ListCaster()
+        caster.process("a,b,c")  # ["a", "b", "c"]
+
+        # With element casting
+        int_caster = ListCaster(element_caster=IntegerCaster())
+        int_caster.process(["1", "2", "3"])  # [1, 2, 3]
+    """
+
+    def __init__(self, element_caster: Optional[Caster] = None):
         self.element_caster = element_caster
 
     def process(self, value: Any) -> list:
@@ -422,6 +487,87 @@ class URLValidator(Validator[str]):
         return value
 
 
+class RangeValidator(Validator[T]):
+    """
+    Validate value is within a range (inclusive).
+
+    Example:
+        validator = RangeValidator(0, 100)
+        validator.process(50)  # OK
+        validator.process(150)  # ValueError
+    """
+
+    def __init__(self, min_value: T, max_value: T):
+        self.min_value = min_value
+        self.max_value = max_value
+
+    def process(self, value: T) -> T:
+        if value < self.min_value or value > self.max_value:
+            raise ValueError(
+                f"Value must be between {self.min_value} and {self.max_value}"
+            )
+        return value
+
+
+class NotEmptyValidator(Validator[Union[str, List, Dict, Set]]):
+    """
+    Validate that collection is not empty.
+
+    Works with strings, lists, dicts, sets, etc.
+
+    Example:
+        validator = NotEmptyValidator()
+        validator.process("hello")  # OK
+        validator.process("")  # ValueError
+        validator.process([1, 2])  # OK
+        validator.process([])  # ValueError
+    """
+
+    def process(self, value: Union[str, List, Dict, Set]) -> Union[str, List, Dict, Set]:
+        if not value:
+            raise ValueError("Value cannot be empty")
+        return value
+
+
+class UniqueItemsValidator(Validator[List[T]]):
+    """
+    Validate that all items in a list are unique.
+
+    Example:
+        validator = UniqueItemsValidator()
+        validator.process([1, 2, 3])  # OK
+        validator.process([1, 2, 2, 3])  # ValueError
+    """
+
+    def process(self, value: List[T]) -> List[T]:
+        if len(value) != len(set(value)):
+            raise ValueError("All items must be unique")
+        return value
+
+
+class ContainsValidator(Validator[str]):
+    """
+    Validate that string contains specific substring.
+
+    Example:
+        validator = ContainsValidator("@", case_sensitive=False)
+        validator.process("user@example.com")  # OK
+        validator.process("username")  # ValueError
+    """
+
+    def __init__(self, substring: str, case_sensitive: bool = True):
+        self.substring = substring
+        self.case_sensitive = case_sensitive
+
+    def process(self, value: str) -> str:
+        check_value = value if self.case_sensitive else value.lower()
+        check_substring = self.substring if self.case_sensitive else self.substring.lower()
+
+        if check_substring not in check_value:
+            raise ValueError(f"Value must contain '{self.substring}'")
+        return value
+
+
 # =============================================================================
 # Built-in Transformers
 # =============================================================================
@@ -465,6 +611,109 @@ class RoundTransformer(Transformer[float]):
         return round(value, self.decimal_places)
 
 
+class ClampTransformer(Transformer[Union[int, float]]):
+    """
+    Clamp numeric value to a range.
+
+    Unlike validators which reject out-of-range values,
+    this transformer adjusts them to the nearest boundary.
+
+    Example:
+        transformer = ClampTransformer(0, 100)
+        transformer.process(-10)  # Returns 0
+        transformer.process(150)  # Returns 100
+        transformer.process(50)  # Returns 50
+    """
+
+    def __init__(self, min_value: Union[int, float], max_value: Union[int, float]):
+        self.min_value = min_value
+        self.max_value = max_value
+
+    def process(self, value: Union[int, float]) -> Union[int, float]:
+        return max(self.min_value, min(value, self.max_value))
+
+
+class DefaultTransformer(Transformer[T]):
+    """
+    Replace None or empty values with a default.
+
+    Example:
+        transformer = DefaultTransformer("unknown")
+        transformer.process(None)  # Returns "unknown"
+        transformer.process("")  # Returns "unknown"
+        transformer.process("value")  # Returns "value"
+    """
+
+    def __init__(self, default: T, replace_empty: bool = True):
+        self.default = default
+        self.replace_empty = replace_empty
+
+    def process(self, value: Optional[T]) -> T:
+        if value is None:
+            return self.default
+        if self.replace_empty and not value:
+            return self.default
+        return value
+
+
+class TruncateTransformer(Transformer[str]):
+    """
+    Truncate string to maximum length with optional suffix.
+
+    Example:
+        transformer = TruncateTransformer(10, suffix="...")
+        transformer.process("Hello")  # Returns "Hello"
+        transformer.process("Hello World!")  # Returns "Hello W..."
+    """
+
+    def __init__(self, max_length: int, suffix: str = "..."):
+        self.max_length = max_length
+        self.suffix = suffix
+
+    def process(self, value: str) -> str:
+        if len(value) <= self.max_length:
+            return value
+        return value[: self.max_length - len(self.suffix)] + self.suffix
+
+
+class SlugifyTransformer(Transformer[str]):
+    """
+    Convert string to URL-safe slug.
+
+    Example:
+        transformer = SlugifyTransformer()
+        transformer.process("Hello World!")  # Returns "hello-world"
+        transformer.process("  Product #123  ")  # Returns "product-123"
+    """
+
+    def process(self, value: str) -> str:
+        # Convert to lowercase and strip
+        slug = value.lower().strip()
+        # Remove non-alphanumeric characters except spaces and hyphens
+        slug = re.sub(r"[^\w\s-]", "", slug)
+        # Replace spaces and multiple hyphens with single hyphen
+        slug = re.sub(r"[-\s]+", "-", slug)
+        # Remove leading/trailing hyphens
+        return slug.strip("-")
+
+
+class NormalizeWhitespaceTransformer(Transformer[str]):
+    """
+    Normalize whitespace in strings.
+
+    Replaces multiple whitespace characters with single spaces
+    and strips leading/trailing whitespace.
+
+    Example:
+        transformer = NormalizeWhitespaceTransformer()
+        transformer.process("Hello    World")  # Returns "Hello World"
+        transformer.process("  Text  ")  # Returns "Text"
+    """
+
+    def process(self, value: str) -> str:
+        return " ".join(value.split())
+
+
 # =============================================================================
 # Foobara Type
 # =============================================================================
@@ -501,18 +750,26 @@ class FoobaraType(Generic[T]):
     def __init__(
         self,
         name: str,
-        python_type: type[T],
+        python_type: Type[T],
         *,
-        casters: list[Caster] | None = None,
-        validators: list[Validator] | None = None,
-        transformers: list[Transformer] | None = None,
-        description: str | None = None,
-        default: T | None = None,
+        casters: Optional[List[Caster]] = None,
+        validators: Optional[List[Validator]] = None,
+        transformers: Optional[List[Transformer]] = None,
+        description: Optional[str] = None,
+        default: Optional[T] = None,
         has_default: bool = False,
         nullable: bool = False,
         element_type: Optional["FoobaraType"] = None,  # For arrays
         key_type: Optional["FoobaraType"] = None,  # For associative arrays (dicts)
         value_type: Optional["FoobaraType"] = None,  # For associative arrays
+        gt: Optional[Union[int, float]] = None,  # Greater than (for Pydantic Field)
+        ge: Optional[Union[int, float]] = None,  # Greater or equal
+        lt: Optional[Union[int, float]] = None,  # Less than
+        le: Optional[Union[int, float]] = None,  # Less or equal
+        min_length: Optional[int] = None,  # Minimum length (strings/collections)
+        max_length: Optional[int] = None,  # Maximum length
+        pattern: Optional[str] = None,  # Regex pattern
+        examples: Optional[List[T]] = None,  # Example values for documentation
     ):
         self.name = name
         self.python_type = python_type
@@ -527,6 +784,16 @@ class FoobaraType(Generic[T]):
         self.key_type = key_type
         self.value_type = value_type
 
+        # Pydantic Field constraints
+        self.gt = gt
+        self.ge = ge
+        self.lt = lt
+        self.le = le
+        self.min_length = min_length
+        self.max_length = max_length
+        self.pattern = pattern
+        self.examples = examples or []
+
     def process(self, value: Any) -> T:
         """
         Process a value through the type's processor pipeline.
@@ -536,6 +803,11 @@ class FoobaraType(Generic[T]):
         2. Casters (type conversion)
         3. Transformers (value normalization) - runs BEFORE validators
         4. Validators (constraint checking) - runs on normalized values
+
+        NOTE: Ruby foobara v0.5.1 fixed type reference defaults handling (commit a35d1aca)
+        by checking if attribute_type_declaration is a Hash before accessing allow_nil.
+        In Python, we use Pydantic BaseModel which handles this automatically through
+        Optional[] type hints, so no explicit fix is needed.
 
         Args:
             value: The value to process
@@ -620,6 +892,14 @@ class FoobaraType(Generic[T]):
             element_type=self.element_type,
             key_type=self.key_type,
             value_type=self.value_type,
+            gt=self.gt,
+            ge=self.ge,
+            lt=self.lt,
+            le=self.le,
+            min_length=self.min_length,
+            max_length=self.max_length,
+            pattern=self.pattern,
+            examples=self.examples.copy() if self.examples else None,
         )
 
     def with_transformers(self, *transformers: Transformer) -> "FoobaraType[T]":
@@ -637,9 +917,17 @@ class FoobaraType(Generic[T]):
             element_type=self.element_type,
             key_type=self.key_type,
             value_type=self.value_type,
+            gt=self.gt,
+            ge=self.ge,
+            lt=self.lt,
+            le=self.le,
+            min_length=self.min_length,
+            max_length=self.max_length,
+            pattern=self.pattern,
+            examples=self.examples.copy() if self.examples else None,
         )
 
-    def optional(self, default: T | None = None) -> "FoobaraType[T | None]":
+    def optional(self, default: Optional[T] = None) -> "FoobaraType[Optional[T]]":
         """Create optional version of this type"""
         return FoobaraType(
             name=f"optional_{self.name}",
@@ -654,6 +942,14 @@ class FoobaraType(Generic[T]):
             element_type=self.element_type,
             key_type=self.key_type,
             value_type=self.value_type,
+            gt=self.gt,
+            ge=self.ge,
+            lt=self.lt,
+            le=self.le,
+            min_length=self.min_length,
+            max_length=self.max_length,
+            pattern=self.pattern,
+            examples=self.examples.copy() if self.examples else None,
         )
 
     def array(self) -> "FoobaraType[list[T]]":
@@ -665,7 +961,149 @@ class FoobaraType(Generic[T]):
             element_type=self,
         )
 
-    def to_manifest(self) -> dict[str, Any]:
+    def to_pydantic_field(self) -> tuple[Type, Field]:
+        """
+        Convert this FoobaraType to a Pydantic field annotation.
+
+        Returns:
+            Tuple of (type annotation, Field object)
+
+        Example:
+            email_type = EmailType
+            field_type, field_obj = email_type.to_pydantic_field()
+
+            # Use in model creation
+            UserModel = create_model(
+                'User',
+                email=(field_type, field_obj),
+            )
+        """
+        # Build Field constraints
+        field_kwargs: Dict[str, Any] = {}
+
+        if self.description:
+            field_kwargs["description"] = self.description
+
+        if self.has_default:
+            field_kwargs["default"] = self.default
+        elif self.nullable:
+            field_kwargs["default"] = None
+
+        # Add numeric constraints
+        if self.gt is not None:
+            field_kwargs["gt"] = self.gt
+        if self.ge is not None:
+            field_kwargs["ge"] = self.ge
+        if self.lt is not None:
+            field_kwargs["lt"] = self.lt
+        if self.le is not None:
+            field_kwargs["le"] = self.le
+
+        # Add string/collection constraints
+        if self.min_length is not None:
+            field_kwargs["min_length"] = self.min_length
+        if self.max_length is not None:
+            field_kwargs["max_length"] = self.max_length
+        if self.pattern is not None:
+            field_kwargs["pattern"] = self.pattern
+
+        # Add examples
+        if self.examples:
+            field_kwargs["examples"] = self.examples
+
+        # Determine the type annotation
+        if self.nullable or self.has_default:
+            type_annotation = Optional[self.python_type]
+        else:
+            type_annotation = self.python_type
+
+        return type_annotation, Field(**field_kwargs)
+
+    def to_pydantic_validator(self) -> Optional[Callable]:
+        """
+        Create a Pydantic field validator from this type's processors.
+
+        Returns:
+            A validator function that can be used with @field_validator
+
+        Example:
+            email_type = EmailType
+
+            class User(BaseModel):
+                email: str
+
+                _validate_email = field_validator('email')(
+                    email_type.to_pydantic_validator()
+                )
+        """
+        if not (self.casters or self.validators or self.transformers):
+            return None
+
+        def validator(value: Any) -> T:
+            """Pydantic validator using FoobaraType processors."""
+            return self.process(value)
+
+        return validator
+
+    def create_pydantic_model(
+        self,
+        model_name: str,
+        fields: Dict[str, "FoobaraType"],
+        *,
+        config: Optional[ConfigDict] = None,
+    ) -> Type[BaseModel]:
+        """
+        Create a Pydantic model from a dictionary of FoobaraTypes.
+
+        Args:
+            model_name: Name of the generated model
+            fields: Dictionary mapping field names to FoobaraTypes
+            config: Optional Pydantic ConfigDict
+
+        Returns:
+            Generated Pydantic model class
+
+        Example:
+            fields = {
+                'email': EmailType,
+                'age': PositiveIntegerType,
+                'name': StringType,
+            }
+
+            UserModel = EmailType.create_pydantic_model('User', fields)
+
+            user = UserModel(
+                email='john@example.com',
+                age=30,
+                name='John Doe'
+            )
+        """
+        # Build field definitions
+        field_definitions: Dict[str, Any] = {}
+        validators_dict: Dict[str, Callable] = {}
+
+        for field_name, foobara_type in fields.items():
+            type_annotation, field_obj = foobara_type.to_pydantic_field()
+            field_definitions[field_name] = (type_annotation, field_obj)
+
+            # Add validator if type has processors
+            validator = foobara_type.to_pydantic_validator()
+            if validator:
+                validators_dict[f"validate_{field_name}"] = field_validator(field_name)(
+                    validator
+                )
+
+        # Create the model
+        model = create_model(
+            model_name,
+            **field_definitions,
+            __config__=config,
+            __validators__=validators_dict,
+        )
+
+        return model
+
+    def to_manifest(self) -> Dict[str, Any]:
         """Generate type manifest for discovery"""
         manifest = {
             "name": self.name,

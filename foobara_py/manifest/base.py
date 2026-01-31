@@ -52,3 +52,16 @@ class BaseManifest(BaseModel, ABC):
             JSON Schema dictionary.
         """
         return self.model_json_schema()
+
+    def domain_reference(self) -> Optional[str]:
+        """
+        Get the domain reference for this manifest.
+
+        Returns domain identifier string (e.g., "Organization::Domain").
+        Added in v0.5.1 for compatibility with Ruby foobara (commit 0c0b3377).
+
+        Returns:
+            Domain reference string or None if not applicable.
+        """
+        # Default implementation - subclasses can override
+        return None

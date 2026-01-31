@@ -51,11 +51,28 @@ class CRUDTable(ABC):
         self.table_name = table_name or self._default_table_name(entity_class)
 
     def _default_table_name(self, entity_class: Type) -> str:
-        """Generate default table name from entity class"""
-        name = entity_class.__name__
-        # Simple camelCase/PascalCase to snake_case conversion could go here
-        # For now, just use the name as-is or lowercase it
-        return name.lower()
+        """
+        Generate default table name from entity class using fully qualified name.
+
+        Uses the full module path to ensure unique table names across domains,
+        matching Ruby foobara v0.5.0+ behavior (commit 90cdb332).
+        """
+        # Try to get full qualified name (module.ClassName)
+        if hasattr(entity_class, '__module__') and hasattr(entity_class, '__name__'):
+            full_name = f"{entity_class.__module__}.{entity_class.__name__}"
+        else:
+            full_name = entity_class.__name__
+
+        # Convert to snake_case and replace . with _
+        # Remove 'types.' prefix if present (matching Ruby behavior)
+        table_name = full_name.lower()
+        if table_name.startswith('types.'):
+            table_name = table_name[6:]  # Remove 'types.' prefix
+
+        # Replace dots with underscores for valid table names
+        table_name = table_name.replace('.', '_')
+
+        return table_name
 
     @abstractmethod
     def find(self, record_id: Any) -> Optional[Dict[str, Any]]:

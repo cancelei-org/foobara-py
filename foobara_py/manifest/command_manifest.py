@@ -154,3 +154,16 @@ class CommandManifest(BaseManifest):
             is_async=is_async,
             tags=tags,
         )
+
+    def domain_reference(self) -> Optional[str]:
+        """
+        Get the domain reference for this command.
+
+        Returns:
+            Domain reference string (e.g., "Organization::Domain") or None.
+        """
+        if self.domain:
+            if self.organization:
+                return f"{self.organization}::{self.domain}"
+            return self.domain
+        return None

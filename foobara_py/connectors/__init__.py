@@ -1,5 +1,6 @@
 """Connectors for exposing commands via various protocols"""
 
+from foobara_py.connectors.request import Request
 from foobara_py.connectors.cli import (
     CLIAppConfig,
     CLIConfig,
@@ -50,6 +51,7 @@ from foobara_py.connectors.celery_connector import (
 )
 
 __all__ = [
+    "Request",
     "MCPConnector",
     "HTTPConnector",
     "HTTPStatus",

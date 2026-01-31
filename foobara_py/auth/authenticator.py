@@ -98,6 +98,22 @@ class Authenticator(ABC):
         """
         pass
 
+    def relevant_entity_classes(self, request: Any) -> list:
+        """
+        Get relevant entity classes for this authenticator.
+
+        This is an optional method that authenticators can implement if they
+        work with foobara entities. Authenticators without entity support
+        can omit this method (commit 3629b462).
+
+        Args:
+            request: Request object
+
+        Returns:
+            List of entity classes or empty list
+        """
+        return []
+
 
 class AuthenticatorSelector:
     """

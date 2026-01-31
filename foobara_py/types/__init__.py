@@ -22,6 +22,8 @@ from foobara_py.types.sensitive import (
 )
 
 from foobara_py.types.type_declarations import (
+    # Protocols
+    ProcessorProtocol,
     # Core classes
     FoobaraType,
     TypeRegistry,
@@ -49,12 +51,21 @@ from foobara_py.types.type_declarations import (
     OneOfValidator,
     EmailValidator,
     URLValidator,
+    RangeValidator,
+    NotEmptyValidator,
+    UniqueItemsValidator,
+    ContainsValidator,
     # Built-in transformers
     StripWhitespaceTransformer,
     LowercaseTransformer,
     UppercaseTransformer,
     TitleCaseTransformer,
     RoundTransformer,
+    ClampTransformer,
+    DefaultTransformer,
+    TruncateTransformer,
+    SlugifyTransformer,
+    NormalizeWhitespaceTransformer,
     # Built-in types
     StringType,
     IntegerType,
@@ -105,6 +116,8 @@ __all__ = [
     "is_sensitive",
     "get_sensitive_fields",
     "redact_dict",
+    # Protocols
+    "ProcessorProtocol",
     # Core type system
     "FoobaraType",
     "TypeRegistry",
@@ -132,12 +145,21 @@ __all__ = [
     "OneOfValidator",
     "EmailValidator",
     "URLValidator",
+    "RangeValidator",
+    "NotEmptyValidator",
+    "UniqueItemsValidator",
+    "ContainsValidator",
     # Built-in transformers
     "StripWhitespaceTransformer",
     "LowercaseTransformer",
     "UppercaseTransformer",
     "TitleCaseTransformer",
     "RoundTransformer",
+    "ClampTransformer",
+    "DefaultTransformer",
+    "TruncateTransformer",
+    "SlugifyTransformer",
+    "NormalizeWhitespaceTransformer",
     # Built-in types
     "StringType",
     "IntegerType",

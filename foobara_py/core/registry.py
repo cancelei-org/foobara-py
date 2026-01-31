@@ -186,3 +186,7 @@ def register(command_class: Type[Command]) -> Type[Command]:
     """
     _default_registry.register(command_class)
     return command_class
+
+
+# Backward compatibility alias
+Registry = CommandRegistry

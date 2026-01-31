@@ -44,18 +44,25 @@ class DomainManifest(BaseManifest):
     )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
+        """
+        Convert to dictionary with deterministic key ordering.
+
+        Keys are sorted alphabetically to ensure consistent serialization
+        (matching Ruby foobara v0.5.1 commit f15edf7c).
+        """
+        data = {
             "name": self.name,
             "full_name": self.full_name,
             "description": self.description,
             "organization": self.organization,
-            "dependencies": self.dependencies,
+            "dependencies": sorted(self.dependencies) if self.dependencies else [],
             "command_count": self.command_count,
             "type_count": self.type_count,
             "entity_count": self.entity_count,
-            "command_names": self.command_names,
+            "command_names": sorted(self.command_names) if self.command_names else [],
         }
+        # Return dict with sorted keys for deterministic output
+        return dict(sorted(data.items()))
 
     @classmethod
     def from_domain(cls, domain: "Domain") -> "DomainManifest":
@@ -104,5 +111,14 @@ class DomainManifest(BaseManifest):
             command_count=len(command_names),
             type_count=type_count,
             entity_count=entity_count,
-            command_names=command_names,
+            command_names=sorted(command_names) if command_names else [],
         )
+
+    def domain_reference(self) -> Optional[str]:
+        """
+        Get the domain reference.
+
+        Returns:
+            Domain reference string (full_name).
+        """
+        return self.full_name
