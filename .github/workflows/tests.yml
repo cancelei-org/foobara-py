@@ -6,25 +6,33 @@ on:
   pull_request:
     branches: [ master, main, develop ]
   workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Enable SSH debugging with tmate'
+        required: false
+        default: false
 
 jobs:
   test:
     runs-on: self-hosted
+    timeout-minutes: 30
 
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+    - name: Setup Python via mise
+      run: |
+        mise use python@${{ matrix.python-version }}
+        mise exec -- python --version
+        echo "Python location: $(which python)"
+        python --version
 
     - name: Check PostgreSQL availability
       id: postgres-check
@@ -49,7 +57,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev,test]"
+        pip install -e ".[all]"
         if [ "${{ steps.postgres-check.outputs.postgres_available }}" == "true" ]; then
           pip install psycopg[pool]
           echo "✅ Installed PostgreSQL driver"
@@ -93,18 +101,28 @@ jobs:
           grep -E "passed|failed|skipped" pytest.log | tail -1 >> $GITHUB_STEP_SUMMARY || echo "Test stats unavailable" >> $GITHUB_STEP_SUMMARY
         fi
 
+    # SSH debugging step - enable on failure or manual trigger
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      continue-on-error: true
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
+
   lint:
     runs-on: self-hosted
+    timeout-minutes: 15
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: 'pip'
+    - name: Setup Python via mise
+      run: |
+        mise use python@3.12
+        python --version
 
     - name: Install dependencies
       run: |
@@ -131,3 +149,13 @@ jobs:
         else
           echo "⚠️ MyPy not available" >> $GITHUB_STEP_SUMMARY
         fi
+
+    # SSH debugging step - enable on failure or manual trigger
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      continue-on-error: true
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
