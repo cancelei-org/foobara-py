@@ -17,6 +17,7 @@ from .subcommand_concern import SubcommandConcern
 from .transaction_concern import TransactionConcern
 from .state_concern import StateConcern
 from .metadata_concern import MetadataConcern
+from .callbacks_concern import CallbacksConcern
 
 __all__ = [
     "TypesConcern",
@@ -29,4 +30,5 @@ __all__ = [
     "TransactionConcern",
     "StateConcern",
     "MetadataConcern",
+    "CallbacksConcern",
 ]

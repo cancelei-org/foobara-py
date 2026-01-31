@@ -15,6 +15,7 @@ Architecture:
 - TransactionConcern: Transaction management
 - StateConcern: State machine and flow
 - MetadataConcern: Manifest and reflection
+- CallbacksConcern: Ruby-like callback DSL
 """
 
 from abc import ABC, ABCMeta
@@ -27,6 +28,7 @@ from foobara_py.core.errors import ErrorCollection
 from foobara_py.core.state_machine import CommandStateMachine
 
 from .concerns import (
+    CallbacksConcern,
     ErrorsConcern,
     ExecutionConcern,
     InputsConcern,
@@ -62,10 +64,17 @@ class CommandMeta(ABCMeta):
         if not hasattr(cls, "_callback_registry") or cls._callback_registry is None:
             cls._callback_registry = CallbackRegistry()
 
+        # Initialize enhanced callback registry
+        if not hasattr(cls, "_enhanced_callback_registry") or cls._enhanced_callback_registry is None:
+            from foobara_py.core.callbacks_enhanced import EnhancedCallbackRegistry
+            cls._enhanced_callback_registry = EnhancedCallbackRegistry()
+
         # Inherit callbacks from parent
         for base in bases:
             if hasattr(base, "_callback_registry") and base._callback_registry:
                 cls._callback_registry = base._callback_registry.merge(cls._callback_registry)
+            if hasattr(base, "_enhanced_callback_registry") and base._enhanced_callback_registry:
+                cls._enhanced_callback_registry = base._enhanced_callback_registry.merge(cls._enhanced_callback_registry)
 
         # Register callbacks from decorated methods
         for attr_name, attr_value in namespace.items():
@@ -118,6 +127,7 @@ class Command(
     TransactionConcern,
     StateConcern,
     MetadataConcern,
+    CallbacksConcern,
     metaclass=CommandMeta,
 ):
     """
@@ -134,6 +144,7 @@ class Command(
     - TransactionConcern: Transactions
     - StateConcern: State machine
     - MetadataConcern: Reflection
+    - CallbacksConcern: Ruby-like callback DSL
 
     Implements complete 8-state execution flow:
     1. open_transaction - Begin database transaction
@@ -169,6 +180,7 @@ class Command(
     _depends_on: ClassVar[Tuple[str, ...]] = ()
     _possible_errors: ClassVar[Dict[str, Dict]] = {}
     _callback_registry: ClassVar[Optional[CallbackRegistry]] = None
+    _enhanced_callback_registry: ClassVar[Optional["EnhancedCallbackRegistry"]] = None
     _cached_inputs_type: ClassVar[Optional[type[BaseModel]]] = None
     _cached_result_type: ClassVar[Optional[type]] = None
     _has_before_execute: ClassVar[bool] = False
@@ -187,6 +199,7 @@ class Command(
         "_subcommand_runtime_path",
         "_loaded_records",
         "_callback_executor",
+        "_enhanced_callback_executor",
     )
 
     def __init_subclass__(cls, **kwargs):
@@ -226,12 +239,14 @@ class Command(
         self._subcommand_runtime_path: Tuple[str, ...] = _runtime_path
         self._loaded_records: Dict[str, Any] = {}
         self._callback_executor: Optional["CallbackExecutor"] = None
+        self._enhanced_callback_executor: Optional["EnhancedCallbackExecutor"] = None
 
 
 # Import here to avoid circular dependency
 from foobara_py.core.outcome import CommandOutcome
 from foobara_py.core.transactions import TransactionContext, TransactionConfig
 from foobara_py.core.callbacks import CallbackExecutor
+from foobara_py.core.callbacks_enhanced import EnhancedCallbackExecutor
 
 # Ensure TransactionConfig is available
 Command._transaction_config = TransactionConfig()

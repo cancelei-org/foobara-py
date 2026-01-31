@@ -62,8 +62,11 @@ class AsyncCommand(
         "_result",
         "_outcome",
         "_state_machine",
+        "_transaction",
         "_subcommand_runtime_path",
         "_loaded_records",
+        "_callback_executor",
+        "_enhanced_callback_executor",
     )
 
     def __init_subclass__(cls, **kwargs):
