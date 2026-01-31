@@ -9,7 +9,7 @@ from foobara_py.remote import (
     RemoteCommand,
     AsyncRemoteCommand,
     RemoteCommandError,
-    ConnectionError,
+    RemoteConnectionError,
     RemoteImporter,
     RemoteNamespace,
     RemoteImportError,

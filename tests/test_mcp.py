@@ -3,7 +3,7 @@
 import pytest
 import json
 from pydantic import BaseModel
-from foobara_py.connectors.mcp import MCPConnector, JsonRpcError, create_mcp_server
+from foobara_py.connectors.mcp import MCPConnector, JsonRpcErrorCode, create_mcp_server
 from foobara_py.core.command import Command
 from foobara_py.domain.domain import Domain
 
@@ -94,7 +94,7 @@ class TestMCPConnector:
     def test_invalid_json(self, connector):
         response = json.loads(connector.run("not valid json"))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.PARSE_ERROR.value
+        assert response["error"]["code"] == JsonRpcErrorCode.PARSE_ERROR.value
 
     def test_invalid_version(self, connector):
         request = {
@@ -104,7 +104,7 @@ class TestMCPConnector:
         }
         response = json.loads(connector.run(json.dumps(request)))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+        assert response["error"]["code"] == JsonRpcErrorCode.INVALID_REQUEST.value
 
     def test_missing_method(self, connector):
         request = {
@@ -113,7 +113,7 @@ class TestMCPConnector:
         }
         response = json.loads(connector.run(json.dumps(request)))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+        assert response["error"]["code"] == JsonRpcErrorCode.INVALID_REQUEST.value
 
     def test_notification_no_response(self, connector):
         # Notifications have no id
@@ -438,7 +438,7 @@ class TestMCPProtocolEdgeCases:
         request = {"jsonrpc": "1.0", "id": 1, "method": "test"}
         response = json.loads(connector.run(json.dumps(request)))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+        assert response["error"]["code"] == JsonRpcErrorCode.INVALID_REQUEST.value
 
     def test_invalid_jsonrpc_version_3_0(self, connector):
         """Test future JSON-RPC version"""
@@ -451,7 +451,7 @@ class TestMCPProtocolEdgeCases:
         request = {"id": 1, "method": "test"}
         response = json.loads(connector.run(json.dumps(request)))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+        assert response["error"]["code"] == JsonRpcErrorCode.INVALID_REQUEST.value
 
     def test_malformed_json(self, connector):
         """Test various malformed JSON"""
@@ -463,7 +463,7 @@ class TestMCPProtocolEdgeCases:
         for invalid_json in malformed:
             response = json.loads(connector.run(invalid_json))
             assert "error" in response
-            assert response["error"]["code"] == JsonRpcError.PARSE_ERROR.value
+            assert response["error"]["code"] == JsonRpcErrorCode.PARSE_ERROR.value
 
         # These are valid JSON but invalid JSON-RPC
         invalid_requests = ["{{}}", "null", '""']
@@ -472,15 +472,15 @@ class TestMCPProtocolEdgeCases:
             assert "error" in response
             # Can be PARSE_ERROR or INVALID_REQUEST depending on implementation
             assert response["error"]["code"] in [
-                JsonRpcError.PARSE_ERROR.value,
-                JsonRpcError.INVALID_REQUEST.value
+                JsonRpcErrorCode.PARSE_ERROR.value,
+                JsonRpcErrorCode.INVALID_REQUEST.value
             ]
 
     def test_empty_string_input(self, connector):
         """Test empty string as input"""
         response = json.loads(connector.run(""))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.PARSE_ERROR.value
+        assert response["error"]["code"] == JsonRpcErrorCode.PARSE_ERROR.value
 
     def test_array_with_invalid_items(self, connector):
         """Test batch with some invalid requests"""
@@ -498,7 +498,7 @@ class TestMCPProtocolEdgeCases:
         request = {"jsonrpc": "2.0", "id": 1, "params": {}}
         response = json.loads(connector.run(json.dumps(request)))
         assert "error" in response
-        assert response["error"]["code"] == JsonRpcError.INVALID_REQUEST.value
+        assert response["error"]["code"] == JsonRpcErrorCode.INVALID_REQUEST.value
 
     def test_invalid_method_type(self, connector):
         """Test method field with wrong type"""
@@ -513,9 +513,9 @@ class TestMCPProtocolEdgeCases:
         assert "error" in response
         # Should return one of these error codes
         assert response["error"]["code"] in [
-            JsonRpcError.METHOD_NOT_FOUND.value,  # -32601
-            JsonRpcError.INVALID_PARAMS.value,     # -32602
-            JsonRpcError.INTERNAL_ERROR.value      # -32603
+            JsonRpcErrorCode.METHOD_NOT_FOUND.value,  # -32601
+            JsonRpcErrorCode.INVALID_PARAMS.value,     # -32602
+            JsonRpcErrorCode.INTERNAL_ERROR.value      # -32603
         ]
 
     def test_null_id(self, connector):
