@@ -6,10 +6,17 @@ on:
   pull_request:
     branches: [ master, main, develop ]
   workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Enable SSH debugging with tmate'
+        required: false
+        default: false
 
 jobs:
   test:
     runs-on: self-hosted
+    timeout-minutes: 30  # Prevent hanging jobs
 
     strategy:
       matrix:
@@ -19,6 +26,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # SSH debugging step - enable on failure or manual trigger
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -95,10 +111,19 @@ jobs:
 
   lint:
     runs-on: self-hosted
+    timeout-minutes: 15
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Setup tmate session (on failure or manual trigger)
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ failure() || github.event.inputs.debug_enabled }}
+      timeout-minutes: 30
+      with:
+        limit-access-to-actor: true
+        sudo: false
 
     - name: Set up Python
       uses: actions/setup-python@v5
