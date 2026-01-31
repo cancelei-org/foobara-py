@@ -1,0 +1,292 @@
+
+======================================================================
+FOOBARA-PY COMPREHENSIVE STRESS TESTS
+======================================================================
+Python Version: 3.14.2 free-threading build (main, Jan 19 2026, 13:22:47) [GCC 15.2.1 20251112]
+Platform: linux
+
+
+======================================================================
+TEST 1: COMMAND PERFORMANCE
+======================================================================
+
+1.1 Simple Command Execution (1000 iterations)
+
+<lambda>:
+  Iterations: 1,000
+  Mean: 153,806.67 ns (153.81 μs)
+  Median: 110,980.50 ns (110.98 μs)
+  P95: 142,729.00 ns (142.73 μs)
+  P99: 520,506.00 ns (520.51 μs)
+  Min: 87,014.00 ns
+  Max: 32,423,048.00 ns
+  StdDev: 1,024,145.36 ns
+  Throughput: 6,502 ops/sec
+  Memory Peak: 3.47 MB
+  Memory Current: 1.67 MB
+
+
+1.2 Complex Command with Validation (1000 iterations)
+
+<lambda>:
+  Iterations: 1,000
+  Mean: 213,429.76 ns (213.43 μs)
+  Median: 132,733.50 ns (132.73 μs)
+  P95: 170,375.00 ns (170.38 μs)
+  P99: 3,257,406.00 ns (3257.41 μs)
+  Min: 97,626.00 ns
+  Max: 31,595,047.00 ns
+  StdDev: 1,059,487.56 ns
+  Throughput: 4,685 ops/sec
+  Memory Peak: 6.01 MB
+  Memory Current: 1.07 MB
+
+
+1.3 Command with Subcommands (500 iterations)
+
+<lambda>:
+  Iterations: 500
+  Mean: 287,386.22 ns (287.39 μs)
+  Median: 256,648.00 ns (256.65 μs)
+  P95: 314,048.00 ns (314.05 μs)
+  P99: 1,622,094.00 ns (1622.09 μs)
+  Min: 200,193.00 ns
+  Max: 3,463,371.00 ns
+  StdDev: 263,876.44 ns
+  Throughput: 3,480 ops/sec
+  Memory Peak: 4.96 MB
+  Memory Current: 4.96 MB
+
+
+1.4 Async Command Performance (SKIPPED)
+  Note: Async command testing requires specialized setup
+
+======================================================================
+TEST 2: TYPE SYSTEM PERFORMANCE
+======================================================================
+
+2.1 Type Validation Speed (10000 iterations)
+
+<lambda>:
+  Iterations: 10,000
+  Mean: 256,794.76 ns (256.79 μs)
+  Median: 120,731.50 ns (120.73 μs)
+  P95: 183,839.00 ns (183.84 μs)
+  P99: 3,293,161.00 ns (3293.16 μs)
+  Min: 81,035.00 ns
+  Max: 118,116,681.00 ns
+  StdDev: 1,938,770.82 ns
+  Throughput: 3,894 ops/sec
+  Memory Peak: 12.22 MB
+  Memory Current: 11.40 MB
+
+
+2.2 Pydantic Model Generation (1000 iterations)
+
+<lambda>:
+  Iterations: 1,000
+  Mean: 5,734.20 ns (5.73 μs)
+  Median: 5,404.50 ns (5.40 μs)
+  P95: 7,014.00 ns (7.01 μs)
+  P99: 11,853.00 ns (11.85 μs)
+  Min: 4,300.00 ns
+  Max: 64,727.00 ns
+  StdDev: 2,606.57 ns
+  Throughput: 174,392 ops/sec
+  Memory Peak: 0.06 MB
+  Memory Current: 0.05 MB
+
+
+2.3 Type Coercion Performance (10000 iterations)
+
+<lambda>:
+  Iterations: 10,000
+  Mean: 235,566.61 ns (235.57 μs)
+  Median: 117,865.00 ns (117.86 μs)
+  P95: 169,524.00 ns (169.52 μs)
+  P99: 3,267,860.00 ns (3267.86 μs)
+  Min: 85,703.00 ns
+  Max: 119,882,793.00 ns
+  StdDev: 1,890,426.31 ns
+  Throughput: 4,245 ops/sec
+  Memory Peak: 11.27 MB
+  Memory Current: 8.71 MB
+
+
+======================================================================
+TEST 3: ERROR HANDLING PERFORMANCE
+======================================================================
+
+3.1 Error Creation and Collection (10000 iterations)
+
+<lambda>:
+  Iterations: 10,000
+  Mean: 89,645.48 ns (89.65 μs)
+  Median: 63,681.50 ns (63.68 μs)
+  P95: 83,615.00 ns (83.61 μs)
+  P99: 186,422.00 ns (186.42 μs)
+  Min: 55,064.00 ns
+  Max: 41,732,632.00 ns
+  StdDev: 733,532.06 ns
+  Throughput: 11,155 ops/sec
+  Memory Peak: 12.79 MB
+  Memory Current: 7.93 MB
+
+
+3.2 Error Serialization (5000 iterations)
+
+serialize_errors:
+  Iterations: 5,000
+  Mean: 118,013.45 ns (118.01 μs)
+  Median: 101,423.00 ns (101.42 μs)
+  P95: 111,977.00 ns (111.98 μs)
+  P99: 129,059.00 ns (129.06 μs)
+  Min: 86,737.00 ns
+  Max: 39,585,971.00 ns
+  StdDev: 714,600.81 ns
+  Throughput: 8,474 ops/sec
+  Memory Peak: 12.55 MB
+  Memory Current: 4.39 MB
+
+
+3.3 Error Recovery Mechanisms (1000 iterations)
+
+<lambda>:
+  Iterations: 1,000
+  Mean: 56,114.67 ns (56.11 μs)
+  Median: 54,827.00 ns (54.83 μs)
+  P95: 61,783.00 ns (61.78 μs)
+  P99: 91,492.00 ns (91.49 μs)
+  Min: 48,073.00 ns
+  Max: 334,060.00 ns
+  StdDev: 11,824.26 ns
+  Throughput: 17,821 ops/sec
+  Memory Peak: 4.91 MB
+  Memory Current: 4.90 MB
+
+
+3.4 Validation Error Handling (5000 iterations)
+
+<lambda>:
+  Iterations: 5,000
+  Mean: 68,770.81 ns (68.77 μs)
+  Median: 60,222.00 ns (60.22 μs)
+  P95: 68,455.00 ns (68.45 μs)
+  P99: 83,028.00 ns (83.03 μs)
+  Min: 49,999.00 ns
+  Max: 31,592,063.00 ns
+  StdDev: 449,201.40 ns
+  Throughput: 14,541 ops/sec
+  Memory Peak: 13.15 MB
+  Memory Current: 11.10 MB
+
+
+======================================================================
+TEST 4: CONCERN ARCHITECTURE PERFORMANCE
+======================================================================
+
+4.1 Mixin Overhead (10000 iterations)
+
+Baseline (Pydantic only):
+
+<lambda>:
+  Iterations: 10,000
+  Mean: 1,583.38 ns (1.58 μs)
+  Median: 1,564.00 ns (1.56 μs)
+  P95: 1,685.00 ns (1.69 μs)
+  P99: 1,789.00 ns (1.79 μs)
+  Min: 1,413.00 ns
+  Max: 39,218.00 ns
+  StdDev: 504.35 ns
+  Throughput: 631,561 ops/sec
+  Memory Peak: 0.59 MB
+  Memory Current: 0.54 MB
+
+
+With Command Architecture:
+
+<lambda>:
+  Iterations: 10,000
+  Mean: 72,095.36 ns (72.10 μs)
+  Median: 58,926.50 ns (58.93 μs)
+  P95: 67,062.00 ns (67.06 μs)
+  P99: 81,859.00 ns (81.86 μs)
+  Min: 49,004.00 ns
+  Max: 31,794,541.00 ns
+  StdDev: 573,502.03 ns
+  Throughput: 13,871 ops/sec
+  Memory Peak: 11.27 MB
+  Memory Current: 8.71 MB
+
+
+Architecture Overhead: 45.53x
+
+4.2 Memory Usage Comparison
+  1000 command executions:
+    Peak memory: 3.30 MB
+    Current memory: 3.30 MB
+    Avg per command: 3.38 KB
+
+======================================================================
+TEST 5: INTEGRATION PERFORMANCE
+======================================================================
+
+5.1 E2E Workflow (100 iterations)
+
+e2e_workflow:
+  Iterations: 100
+  Mean: 88,185.49 ns (88.19 μs)
+  Median: 85,990.50 ns (85.99 μs)
+  P95: 106,855.00 ns (106.86 μs)
+  P99: 237,407.00 ns (237.41 μs)
+  Min: 74,832.00 ns
+  Max: 237,407.00 ns
+  StdDev: 16,488.57 ns
+  Throughput: 11,340 ops/sec
+  Memory Peak: 0.59 MB
+  Memory Current: 0.59 MB
+
+
+5.2 Repository Operations (500 iterations)
+
+repo_operations:
+  Iterations: 500
+  Mean: 31,480.36 ns (31.48 μs)
+  Median: 30,753.00 ns (30.75 μs)
+  P95: 33,827.00 ns (33.83 μs)
+  P99: 49,499.00 ns (49.50 μs)
+  Min: 27,997.00 ns
+  Max: 123,697.00 ns
+  StdDev: 5,320.71 ns
+  Throughput: 31,766 ops/sec
+  Memory Peak: 0.62 MB
+  Memory Current: 0.62 MB
+
+
+======================================================================
+TEST 6: STRESS TESTING - CONCURRENT EXECUTION
+======================================================================
+
+6.1 Concurrent Command Execution (100 threads, 10 ops each)
+  Total operations: 1000
+  Duration: 0.03 seconds
+  Throughput: 39,120 ops/sec
+  Avg latency: 0.03 ms
+
+6.2 Memory Leak Detection (10000 iterations)
+  Start memory: 0.02 MB
+  End memory: 0.26 MB
+  Memory growth: 0.24 MB
+  Growth per 1000 ops: 0.0241 MB
+
+6.3 Resource Cleanup Verification
+  Initial object count: 75491
+  Final object count: 75494
+  Objects created: 3
+  Objects per command: 0.00
+
+Results saved to: /home/cancelei/Projects/foobara-universe/foobara-ecosystem-python/foobara-py/benchmarks/stress_test_results.json
+
+======================================================================
+ALL STRESS TESTS COMPLETED
+======================================================================
