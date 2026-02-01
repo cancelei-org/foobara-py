@@ -14,10 +14,28 @@ Features:
 Pattern: Ruby Foobara's StateMachine concern
 """
 
-from typing import Any, Callable, ClassVar, Optional
+from typing import Any, Callable, ClassVar, NamedTuple, Optional
 
 from foobara_py.core.callbacks_enhanced import EnhancedCallbackExecutor, EnhancedCallbackRegistry
 from foobara_py.core.state_machine import STATE_NAMES, CommandState, CommandStateMachine, Halt
+
+# Constants for hook existence checks
+HAS_BEFORE_EXECUTE_ATTR = '_has_before_execute'
+HAS_AFTER_EXECUTE_ATTR = '_has_after_execute'
+
+
+class SuccessExitParams(NamedTuple):
+    """Parameters for successful transaction exit (no exception)."""
+    exc_type: None = None
+    exc_value: None = None
+    traceback: None = None
+
+
+class ExceptionExitParams(NamedTuple):
+    """Parameters for exception-based transaction exit."""
+    exc_type: type
+    exc_value: Exception
+    traceback: Any  # types.TracebackType
 
 
 class StateConcern:
@@ -128,7 +146,7 @@ class StateConcern:
                 # Phase 6: Execute
                 try:
                     # Call before_execute hook if defined (optimized with single boolean check)
-                    if getattr(self.__class__, '_has_before_execute', False):
+                    if getattr(self.__class__, HAS_BEFORE_EXECUTE_ATTR, False):
                         self.before_execute()
                         if self._errors.has_errors():
                             return self._fail()
@@ -141,7 +159,7 @@ class StateConcern:
                     )
 
                     # Call after_execute hook if defined (optimized with single boolean check)
-                    if getattr(self.__class__, '_has_after_execute', False):
+                    if getattr(self.__class__, HAS_AFTER_EXECUTE_ATTR, False):
                         self._result = self.after_execute(self._result)
                 except Halt:
                     return self._fail()
@@ -175,14 +193,16 @@ class StateConcern:
             finally:
                 # Exit transaction context
                 if self._transaction:
-                    self._transaction.__exit__(None, None, None)
+                    success_exit = SuccessExitParams()
+                    self._transaction.__exit__(*success_exit)
 
         except Exception as e:
             # Unhandled exception - error state
             self._state_machine.error()
             self.rollback_transaction()
             if self._transaction:
-                self._transaction.__exit__(type(e), e, e.__traceback__)
+                exception_exit = ExceptionExitParams(type(e), e, e.__traceback__)
+                self._transaction.__exit__(*exception_exit)
             raise
 
     def _execute_phase(

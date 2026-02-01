@@ -58,6 +58,28 @@ class CommandMeta(ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict, **kwargs):
+        """
+        Create a new Command class with enhanced callback support and type caching.
+
+        This metaclass performs three critical initialization tasks:
+        1. Callback Registry Setup: Ensures each Command class has its own callback registry
+           for managing before/after/around/error callbacks on state transitions.
+
+        2. Callback Inheritance: Merges parent class callbacks with child class callbacks,
+           maintaining proper inheritance hierarchy and callback priority ordering.
+
+        3. Type Cache Initialization: Prepares class-level cache for Input and Result type
+           extraction, enabling fast type lookups without repeated generic inspection.
+
+        Args:
+            name: Name of the class being created
+            bases: Tuple of base classes
+            namespace: Class namespace dictionary
+            **kwargs: Additional metaclass arguments
+
+        Returns:
+            Newly created Command class with initialized callback system
+        """
         cls = super().__new__(mcs, name, bases, namespace)
 
         # Initialize enhanced callback registry
@@ -147,16 +169,16 @@ class Command(
 
     # Instance attributes (using __slots__ for performance)
     __slots__ = (
-        "_raw_inputs",
-        "_inputs",
-        "_errors",
-        "_result",
-        "_outcome",
-        "_state_machine",
-        "_transaction",
-        "_subcommand_runtime_path",
-        "_loaded_records",
-        "_enhanced_callback_executor",
+        "_raw_inputs",                    # Dict[str, Any]: Original unvalidated input kwargs
+        "_inputs",                        # Optional[InputT]: Validated Pydantic input model instance
+        "_errors",                        # ErrorCollection: Accumulated validation and execution errors
+        "_result",                        # Optional[ResultT]: Command execution result
+        "_outcome",                       # Optional[CommandOutcome]: Success/failure outcome with result or errors
+        "_state_machine",                 # CommandStateMachine: 8-state execution flow state tracker
+        "_transaction",                   # Optional[TransactionContext]: Database transaction context manager
+        "_subcommand_runtime_path",       # Tuple[str, ...]: Parent command chain for nested execution
+        "_loaded_records",                # Dict[str, Any]: Entity records loaded during load_records phase
+        "_enhanced_callback_executor",    # Optional[EnhancedCallbackExecutor]: Callback execution engine
     )
 
     def __init_subclass__(cls, **kwargs):
@@ -171,20 +193,29 @@ class Command(
 
         # Convert list format to dict format
         if isinstance(cls._possible_errors, list):
-            normalized = {}
-            for item in cls._possible_errors:
-                if isinstance(item, tuple) and len(item) >= 2:
-                    symbol, message = item[0], item[1]
-                    normalized[symbol] = {"symbol": symbol, "message": message, "context": {}}
-            cls._possible_errors = normalized
+            normalized_errors = {}
+            for error_item in cls._possible_errors:
+                is_valid_tuple = isinstance(error_item, tuple) and len(error_item) >= 2
+                if is_valid_tuple:
+                    error_symbol = error_item[0]
+                    error_message = error_item[1]
+                    error_entry = {"symbol": error_symbol, "message": error_message, "context": {}}
+                    normalized_errors[error_symbol] = error_entry
+            cls._possible_errors = normalized_errors
 
     def __init__(self, _runtime_path: Tuple[str, ...] = (), **inputs):
         """
         Initialize command with inputs.
 
         Args:
-            _runtime_path: Internal - path through parent commands (for subcommands)
-            **inputs: Command inputs
+            _runtime_path: Internal parameter for tracking command execution hierarchy.
+                          When a command runs as a subcommand of another command,
+                          this tuple contains the chain of parent command names,
+                          enabling proper error context and debugging information.
+                          Example: ("ParentCommand", "ChildCommand") indicates this
+                          command was invoked by ChildCommand which was invoked by ParentCommand.
+                          Empty tuple () for top-level command execution.
+            **inputs: Command inputs to be validated against the InputT type
         """
         self._raw_inputs: Dict[str, Any] = inputs
         self._inputs: Optional[InputT] = None

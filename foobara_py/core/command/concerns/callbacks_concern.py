@@ -64,7 +64,7 @@ class CallbacksConcern:
     """
 
     # Class-level registry (initialized in metaclass or __init_subclass__)
-    _enhanced_callback_registry: ClassVar[Optional[EnhancedCallbackRegistry]] = None
+    _enhanced_callback_registry: ClassVar[Optional["EnhancedCallbackRegistry"]] = None
 
     @classmethod
     def _ensure_callback_registry(cls) -> EnhancedCallbackRegistry:
@@ -279,6 +279,27 @@ class CallbacksConcern:
         cls._ensure_callback_registry().register("around", callback, transition="validate", priority=priority)
 
     @classmethod
+    def _register_transition_callback(
+        cls,
+        callback_type: str,
+        transition: str,
+        callback: Callable,
+        priority: int = 0
+    ) -> None:
+        """
+        Helper method to register a callback for a specific transition.
+
+        Args:
+            callback_type: Type of callback ("before", "after", "around")
+            transition: Transition name
+            callback: Callable to register
+            priority: Execution priority (lower = earlier)
+        """
+        cls._ensure_callback_registry().register(
+            callback_type, callback, transition=transition, priority=priority
+        )
+
+    @classmethod
     def before_cast_and_validate_inputs(cls, callback: Callable, priority: int = 0) -> None:
         """
         Register before callback for cast_and_validate_inputs transition.
@@ -287,9 +308,7 @@ class CallbacksConcern:
             callback: Callable accepting command instance
             priority: Execution priority (lower = earlier)
         """
-        cls._ensure_callback_registry().register(
-            "before", callback, transition="cast_and_validate_inputs", priority=priority
-        )
+        cls._register_transition_callback("before", "cast_and_validate_inputs", callback, priority)
 
     @classmethod
     def after_cast_and_validate_inputs(cls, callback: Callable, priority: int = 0) -> None:
@@ -300,9 +319,7 @@ class CallbacksConcern:
             callback: Callable accepting command instance
             priority: Execution priority (lower = earlier)
         """
-        cls._ensure_callback_registry().register(
-            "after", callback, transition="cast_and_validate_inputs", priority=priority
-        )
+        cls._register_transition_callback("after", "cast_and_validate_inputs", callback, priority)
 
     @classmethod
     def around_cast_and_validate_inputs(cls, callback: Callable, priority: int = 0) -> None:
@@ -313,9 +330,7 @@ class CallbacksConcern:
             callback: Callable accepting (command, proceed) and calling proceed()
             priority: Execution priority (lower = earlier)
         """
-        cls._ensure_callback_registry().register(
-            "around", callback, transition="cast_and_validate_inputs", priority=priority
-        )
+        cls._register_transition_callback("around", "cast_and_validate_inputs", callback, priority)
 
     @classmethod
     def before_load_records(cls, callback: Callable, priority: int = 0) -> None:

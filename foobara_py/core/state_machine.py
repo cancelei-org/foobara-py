@@ -6,7 +6,7 @@ Uses __slots__ and enum for performance.
 """
 
 from enum import IntEnum, auto
-from typing import Callable, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 
 class CommandState(IntEnum):
@@ -39,8 +39,11 @@ TERMINAL_STATES: Set[CommandState] = {
 # States that can transition to failed
 CAN_FAIL_STATES: Set[CommandState] = set(CommandState) - TERMINAL_STATES
 
+# Constant for terminal states with no valid transitions
+EMPTY_TRANSITION_SET: Set[CommandState] = set()
+
 # Valid state transitions (from_state -> set of to_states)
-VALID_TRANSITIONS: dict = {
+VALID_TRANSITIONS: Dict[CommandState, Set[CommandState]] = {
     CommandState.INITIALIZED: {
         CommandState.OPENING_TRANSACTION,
         CommandState.FAILED,
@@ -77,9 +80,9 @@ VALID_TRANSITIONS: dict = {
         CommandState.FAILED,
         CommandState.ERRORED,
     },
-    CommandState.SUCCEEDED: set(),
-    CommandState.FAILED: set(),
-    CommandState.ERRORED: set(),
+    CommandState.SUCCEEDED: EMPTY_TRANSITION_SET,
+    CommandState.FAILED: EMPTY_TRANSITION_SET,
+    CommandState.ERRORED: EMPTY_TRANSITION_SET,
 }
 
 
@@ -126,8 +129,13 @@ class CommandStateMachine:
 
         Returns True if transition succeeded, False otherwise.
         """
-        if new_state in VALID_TRANSITIONS.get(self._state, set()):
-            self._transition_history.append((self._state, new_state))
+        current_state = self._state
+        allowed_transitions = VALID_TRANSITIONS.get(current_state, set())
+        is_valid_transition = new_state in allowed_transitions
+
+        if is_valid_transition:
+            transition_record = (current_state, new_state)
+            self._transition_history.append(transition_record)
             self._state = new_state
             return True
         return False
@@ -151,7 +159,7 @@ class CommandStateMachine:
 
 
 # State name mapping for display
-STATE_NAMES: dict = {
+STATE_NAMES: Dict[CommandState, str] = {
     CommandState.INITIALIZED: "initialized",
     CommandState.OPENING_TRANSACTION: "opening_transaction",
     CommandState.CASTING_AND_VALIDATING_INPUTS: "cast_and_validate_inputs",

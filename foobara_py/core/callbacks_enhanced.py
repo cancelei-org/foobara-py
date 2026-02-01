@@ -19,6 +19,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from foobara_py.core.state_machine import CommandState
 
+# Performance target constants (in microseconds)
+CALLBACK_MATCHING_TARGET_US = 2  # Target overhead for callback matching
+CALLBACK_EXECUTION_TARGET_US = 5  # Target overhead for callback execution
+
 if TYPE_CHECKING:
     from foobara_py.core.command import Command
 
@@ -292,14 +296,16 @@ class EnhancedCallbackRegistry:
 
     def get_cache_stats(self) -> Dict[str, int]:
         """Get cache performance statistics."""
-        total = self._cache_hits + self._cache_misses
-        hit_rate = (self._cache_hits / total * 100) if total > 0 else 0
+        total_cache_accesses = self._cache_hits + self._cache_misses
+        cache_hit_percentage = (self._cache_hits / total_cache_accesses * 100) if total_cache_accesses > 0 else 0
+        precompiled_chain_count = len(self._compiled_chains)
+
         return {
             "hits": self._cache_hits,
             "misses": self._cache_misses,
-            "total": total,
-            "hit_rate": hit_rate,
-            "compiled_chains": len(self._compiled_chains)
+            "total": total_cache_accesses,
+            "hit_rate": cache_hit_percentage,
+            "compiled_chains": precompiled_chain_count
         }
 
 
@@ -389,10 +395,10 @@ class EnhancedCallbackExecutor:
 
                     def wrapped() -> Any:
                         # Current callback wraps the rest of the chain
-                        return callbacks[0](
-                            self._command,
-                            build_chain(callbacks[1:], core)
-                        )
+                        outer_callback = callbacks[0]
+                        remaining_callbacks = callbacks[1:]
+                        inner_chain = build_chain(remaining_callbacks, core)
+                        return outer_callback(self._command, inner_chain)
 
                     return wrapped
 
